@@ -10,6 +10,7 @@ pub enum ReportFormat {
     Json,
     Html,
     Markdown,
+    Csv,
 }
 
 impl ReportFormat {
@@ -18,6 +19,7 @@ impl ReportFormat {
             "json" => Some(ReportFormat::Json),
             "html" => Some(ReportFormat::Html),
             "markdown" | "md" => Some(ReportFormat::Markdown),
+            "csv" => Some(ReportFormat::Csv),
             _ => None,
         }
     }
@@ -27,6 +29,7 @@ impl ReportFormat {
             ReportFormat::Json => "json",
             ReportFormat::Html => "html",
             ReportFormat::Markdown => "md",
+            ReportFormat::Csv => "csv",
         }
     }
 }
@@ -178,12 +181,77 @@ pub fn generate_report(
         ReportFormat::Json => generate_json(results),
         ReportFormat::Html => generate_html(results),
         ReportFormat::Markdown => generate_markdown(results),
+        ReportFormat::Csv => generate_csv(results),
     }
 }
 
 /// Generate JSON report
 fn generate_json(results: &ScanResults) -> Result<String, std::fmt::Error> {
     serde_json::to_string_pretty(results).map_err(|_| std::fmt::Error)
+}
+
+/// Generate CSV report
+fn generate_csv(results: &ScanResults) -> Result<String, std::fmt::Error> {
+    let mut csv = String::with_capacity(1024);
+
+    // Header
+    writeln!(
+        csv,
+        "Severity,Type,Title,URL,Parameter,Tool,CWE,CVSS,Description,Remediation"
+    )?;
+
+    // Sort findings by severity
+    let mut sorted_findings = results.findings.clone();
+    sorted_findings.sort_by_key(|a| std::cmp::Reverse(a.severity.rank()));
+
+    for finding in &sorted_findings {
+        let vuln_type = match &finding.vulnerability_type {
+            VulnerabilityType::SqlInjection => "SQL Injection",
+            VulnerabilityType::XssReflected => "Reflected XSS",
+            VulnerabilityType::XssStored => "Stored XSS",
+            VulnerabilityType::XssDom => "DOM XSS",
+            VulnerabilityType::Idor => "IDOR",
+            VulnerabilityType::Ssrf => "SSRF",
+            VulnerabilityType::SupplyChainDependency => "Dependency Vulnerability",
+            VulnerabilityType::SupplyChainMalicious => "Malicious Package",
+            VulnerabilityType::SecurityHeader => "Security Header",
+            VulnerabilityType::TechFingerprint => "Technology Fingerprint",
+            VulnerabilityType::SecretExposed => "Exposed Secret",
+            VulnerabilityType::SubdomainFound => "Subdomain Discovered",
+            VulnerabilityType::WafDetected => "WAF Detected",
+            VulnerabilityType::JwtIssue => "JWT Issue",
+            VulnerabilityType::GraphQLIntrospection => "GraphQL Introspection",
+            VulnerabilityType::ApiSecurity => "API Security",
+            VulnerabilityType::Xxe => "XML External Entity",
+            VulnerabilityType::Ssti => "Server-Side Template Injection",
+        };
+
+        writeln!(
+            csv,
+            "{},{},{},{},{},{},{},{},{},{}",
+            escape_csv(&finding.severity.to_string()),
+            escape_csv(vuln_type),
+            escape_csv(&finding.title),
+            escape_csv(&finding.url),
+            escape_csv(finding.parameter.as_deref().unwrap_or("")),
+            escape_csv(&finding.tool_source),
+            escape_csv(finding.cwe_id.as_deref().unwrap_or("")),
+            escape_csv(&finding.cvss_score.map_or_else(|| String::new(), |v| v.to_string())),
+            escape_csv(&finding.description),
+            escape_csv(&finding.remediation),
+        )?;
+    }
+
+    Ok(csv)
+}
+
+/// Escape a value for CSV (wrap in quotes if contains comma, quote, or newline)
+fn escape_csv(value: &str) -> String {
+    if value.contains(',') || value.contains('"') || value.contains('\n') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
 }
 
 /// Generate HTML report
@@ -347,6 +415,22 @@ fn generate_html(results: &ScanResults) -> Result<String, std::fmt::Error> {
             font-size: 0.8rem;
             text-align: center;
         }}
+        @media print {{
+            body {{ background: #fff; color: #000; padding: 0.5cm; }}
+            .stat-card {{ border: 1px solid #ccc; }}
+            .finding-detail {{ border: 1px solid #ccc; break-inside: avoid; }}
+            table {{ border: 1px solid #ccc; }}
+            th, td {{ border-bottom: 1px solid #ddd; }}
+            th {{ background: #f0f0f0; color: #333; }}
+            .badge-critical {{ background: #fee; color: #c00; }}
+            .badge-high {{ background: #fee; color: #c00; }}
+            .badge-medium {{ background: #ffc; color: #900; }}
+            .badge-low {{ background: #eef; color: #06c; }}
+            .badge-info {{ background: #f5f5f5; color: #666; }}
+            h1, h2 {{ color: #000; }}
+            a {{ color: #000; text-decoration: underline; }}
+            .footer {{ border-top: 1px solid #ccc; color: #666; }}
+        }}
     </style>
 </head>
 <body>
@@ -507,7 +591,7 @@ fn generate_html(results: &ScanResults) -> Result<String, std::fmt::Error> {
         html,
         r#"
         <div class="footer">
-            Generated by Jack Sparrow v0.2.0 &mdash; {timestamp}
+            Generated by Jack Sparrow v0.4.0 &mdash; {timestamp}
         </div>
     </div>
 </body>
@@ -636,7 +720,7 @@ fn generate_markdown(results: &ScanResults) -> Result<String, std::fmt::Error> {
     writeln!(md, "---")?;
     writeln!(
         md,
-        "*Generated by Jack Sparrow v0.2.0 — {}*",
+        "*Generated by Jack Sparrow v0.4.0 — {}*",
         results.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
     )?;
 
@@ -740,5 +824,54 @@ mod tests {
         assert_eq!(ReportFormat::Json.extension(), "json");
         assert_eq!(ReportFormat::Html.extension(), "html");
         assert_eq!(ReportFormat::Markdown.extension(), "md");
+        assert_eq!(ReportFormat::Csv.extension(), "csv");
+    }
+
+    #[test]
+    fn test_csv_report() {
+        let results = sample_results();
+        let csv = generate_report(&results, ReportFormat::Csv).unwrap();
+        assert!(csv.contains("Severity,Type,Title"));
+        assert!(csv.contains("SQL Injection"));
+        assert!(csv.contains("Reflected XSS"));
+        assert!(csv.contains("http://test.example.com/login"));
+        assert!(csv.contains("http://test.example.com/search"));
+    }
+
+    #[test]
+    fn test_csv_escape() {
+        assert_eq!(escape_csv("hello"), "hello");
+        assert_eq!(escape_csv("hello,world"), "\"hello,world\"");
+        assert_eq!(escape_csv("say \"hi\""), "\"say \"\"hi\"\"\"");
+        assert_eq!(escape_csv("line1\nline2"), "\"line1\nline2\"");
+    }
+
+    #[test]
+    fn test_csv_empty_findings() {
+        let results = ScanResults::new("http://clean.example.com".to_string());
+        let csv = generate_report(&results, ReportFormat::Csv).unwrap();
+        assert!(csv.contains("Severity,Type,Title"));
+        // Only header, no data rows
+        assert_eq!(csv.lines().count(), 1);
+    }
+
+    #[test]
+    fn test_csv_sorted_by_severity() {
+        let mut results = sample_results();
+        // Add a critical finding
+        let critical = Finding::new(
+            VulnerabilityType::Ssti,
+            Severity::Critical,
+            Confidence::Confirmed,
+            "SSTI in template".to_string(),
+            "http://test.example.com/render".to_string(),
+            "sparrow".to_string(),
+        );
+        results.findings.push(critical);
+
+        let csv = generate_report(&results, ReportFormat::Csv).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+        // First data row should be CRITICAL
+        assert!(lines[1].starts_with("CRITICAL,"));
     }
 }

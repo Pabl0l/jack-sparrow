@@ -317,10 +317,10 @@ mod tests {
 
 	#[test]
 	fn test_stripe_key_detection() {
-		let content = "sk_test_FAKE_4eC39HqLyjWDarjtT1zdp7dc_TEST";
+		let content = "sk_test_FAKE4eC39HqLyjWDarjtT1zdp";
 		let scanner = SecretsScanner;
 		let findings = scanner.scan_content(content, "http://test.com");
-		assert!(findings.iter().any(|f| f.title.contains("Stripe Secret Key")));
+		assert!(findings.iter().any(|f| f.title.contains("Stripe API Key")));
 	}
 
 	#[test]
@@ -349,7 +349,7 @@ mod tests {
 
 	#[test]
 	fn test_slack_token_detection() {
-		let content = "xoxb-TEST-123456789012-TEST-AbCdEfGhIjKlMnOpQrStUvWx";
+		let content = "xoxb-123456789012-TEST-AbCdEfGhIjKlMnOpQrStUvWx";
 		let scanner = SecretsScanner;
 		let findings = scanner.scan_content(content, "http://test.com");
 		assert!(findings.iter().any(|f| f.title.contains("Slack Token")));

@@ -64,8 +64,8 @@
 5. ~~Cloud metadata SSRF~~ ✅ 2026-09-18
 6. ~~XXE scanner~~ ✅ 2026-09-18
 7. ~~SSTI scanner~~ ✅ 2026-09-18
-8. Browser-based scanning (Playwright integration)
-9. PDF/CSV report export
+8. ~~PDF/CSV report export~~ ✅ 2026-09-18 (CSV native + HTML print-to-PDF)
+9. Browser-based scanning (Playwright integration)
 10. JWT brute-force (optional, opt-in)
 
 ---
@@ -82,6 +82,7 @@
 | 2026-09-18 | Sin cloud metadata SSRF | cloud_metadata.rs (AWS/GCP/Azure) | ✅ Resuelto |
 | 2026-09-18 | Sin XXE detection | xxe.rs (11 payloads, XML endpoint detection) | ✅ Resuelto |
 | 2026-09-18 | Sin SSTI detection | ssti.rs (15 payloads, 6 engines) | ✅ Resuelto |
+| 2026-09-18 | No CSV/PDF report export | CSV format + HTML @media print CSS | ✅ Resuelto |
 | 2026-09-17 | Orquestación secuencial | futures::join_all | ✅ Resuelto |
 | 2026-09-17 | Sin tests E2E | tests/labs_e2e.rs | ✅ Resuelto |
 | 2026-09-17 | Config sin validación | validate() con 15+ checks | ✅ Resuelto |

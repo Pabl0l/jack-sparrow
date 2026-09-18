@@ -52,7 +52,7 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 		Commands::CheckTools => execute_check_tools(&config),
 		Commands::InitConfig { output } => execute_init_config(&output),
 		Commands::Version => {
-			println!("Jack Sparrow 0.2.0");
+			println!("Jack Sparrow 0.4.0");
 			Ok(())
 		}
 	}

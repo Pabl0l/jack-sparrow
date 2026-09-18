@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Jack Sparrow - Professional web pentesting tool
 #[derive(Parser, Debug)]
 #[command(name = "sparrow")]
-#[command(version = "0.2.0")]
+#[command(version = "0.4.0")]
 #[command(
     about = "🏴‍☠️ Professional web pentesting tool — find SQLi, XSS, IDOR, SSRF, and Supply Chain vulnerabilities"
 )]
@@ -41,7 +41,7 @@ pub enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
 
-        /// Output format (json, html, markdown)
+        /// Output format (json, html, markdown, csv — use html + browser Print to PDF)
         #[arg(long, default_value = "json")]
         format: String,
 

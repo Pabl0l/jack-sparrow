@@ -10,7 +10,7 @@ fn test_version_command() {
         .arg("version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Jack Sparrow 0.2.0"));
+        .stdout(predicate::str::contains("Jack Sparrow 0.4.0"));
 }
 
 #[test]

@@ -124,7 +124,7 @@
 - [X] XXE (XML External Entity detection)
 - [X] SSTI (Server-Side Template Injection)
 - [ ] Browser-based scanning (Playwright integration for JS-heavy apps)
-- [ ] PDF/CSV report export
+- [X] PDF/CSV report export (CSV native + HTML print-to-PDF)
 - [ ] OAuth/OIDC flow testing
 - [ ] Rate limit bypass techniques
 - [ ] JWT brute-force (optional, opt-in)
