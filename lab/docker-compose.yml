@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: dvwa
+    ports:
+      - "80:80"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=p@ssw0rd
+    networks:
+      - webscanner-net
+
+  juice-shop:
+    image: bkimminich/juice-shop
+    container_name: juice-shop
+    ports:
+      - "3000:3000"
+    networks:
+      - webscanner-net
+
+  webgoat:
+    image: webgoat/webgoat
+    container_name: webgoat
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - WEBGOAT_PORT=8080
+      - WEBGOAT_ADMINGUI_PORT=9090
+    networks:
+      - webscanner-net
+
+  ssrf-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile.ssrf
+    container_name: ssrf-lab
+    ports:
+      - "5000:5000"
+    networks:
+      - webscanner-net
+
+networks:
+  webscanner-net:
+    driver: bridge

@@ -1,0 +1,46 @@
+[general]
+max_concurrent = 4
+timeout_secs = 300
+user_agent = "JackSparrow/0.1.0"
+verbose = true
+
+[scanners.sqli]
+level = 3
+risk = 2
+threads = 4
+tamper = []
+
+[scanners.xss]
+workers = 50
+waf_evasion = false
+
+[scanners.idor]
+param_names = ["id", "user_id", "account_id", "item_id", "order_id"]
+id_range = [1, 100]
+similarity_threshold = 0.8
+common_paths = ["/api/users", "/api/products", "/api/orders"]
+
+[scanners.ssrf]
+level = 2
+modules = ["readfiles", "portscan"]
+target_files = ["/etc/passwd", "/etc/hostname"]
+
+[scanners.supply_chain]
+check_npm = true
+check_pip = true
+check_cargo = true
+severity_threshold = "medium"
+
+[tools]
+sqlmap_path = "C:\\Users\\jpom1\\AppData\\Local\\Temp\\sqlmap.bat"
+dalfox_path = "dalfox"
+ssrfmap_path = "C:\\Users\\jpom1\\AppData\\Local\\Temp\\ssrfmap.bat"
+npm_path = "npm"
+pip_audit_path = "pip-audit"
+cargo_audit_path = "cargo-audit"
+
+[output]
+output_dir = "./reports"
+format = "json"
+include_evidence = true
+include_requests = false

@@ -1,0 +1,33 @@
+{
+  "target": {
+    "url": "",
+    "timeout": 300000
+  },
+  "scanners": {
+    "sqli": {
+      "enabled": true,
+      "level": 3,
+      "risk": 2
+    },
+    "xss": {
+      "enabled": true
+    },
+    "idor": {
+      "enabled": true
+    },
+    "ssrf": {
+      "enabled": true
+    },
+    "supply_chain": {
+      "enabled": true
+    }
+  },
+  "output": {
+    "format": "json",
+    "directory": "./output"
+  },
+  "tools": {
+    "sqlmap_path": "C:\\Users\\jpom1\\AppData\\Local\\Temp\\sqlmap.bat",
+    "dalfox_path": "dalfox"
+  }
+}

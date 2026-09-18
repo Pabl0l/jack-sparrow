@@ -1,0 +1,35 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lab
+lab/*/data/
+lab/*/volumes/
+lab/sqlmap/
+
+# Reports (scan output — never commit)
+reports/
+findings.json
+*.html
+
+# Session files
+session.har
+
+# Environment
+.env
+.env.local
+
+# Temp files
+*.tmp
+*.temp
