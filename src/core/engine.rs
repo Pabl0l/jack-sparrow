@@ -7,8 +7,6 @@ use crate::core::scanners::headers::SecurityHeadersScanner;
 use crate::core::scanners::idor::IdorScanner;
 use crate::core::scanners::jwt::JwtAnalysisScanner;
 use crate::core::scanners::secrets::SecretsScanner;
-use crate::core::scanners::sqli::SqlInjectionScanner;
-use crate::core::scanners::ssrf::SsrfScanner;
 use crate::core::scanners::stored_xss::StoredXssScanner;
 use crate::core::scanners::subdomain::SubdomainEnumScanner;
 use crate::core::scanners::supply_chain::SupplyChainScanner;
@@ -20,6 +18,8 @@ use crate::core::scanners::cloud_metadata::CloudMetadataScanner;
 use crate::core::scanners::xxe::XxeScanner;
 use crate::core::scanners::ssti::SstiScanner;
 use crate::core::scanners::xss::XssScanner;
+use crate::core::scanners::sqli_native::NativeSqlScanner;
+use crate::core::scanners::ssrf_native::NativeSsrfScanner;
 use crate::core::scanners::{Scanner, ScannerType};
 use crate::shared::config::JackSparrowConfig;
 use crate::shared::context::ScanContext;
@@ -326,7 +326,8 @@ async fn run_scanner(
 ) -> Result<Vec<Finding>, JackSparrowError> {
 	match scanner_type {
 		ScannerType::SqlInjection => {
-			let scanner = SqlInjectionScanner::new(config);
+			// Use native scanner (no external tools needed)
+			let scanner = NativeSqlScanner::new(config);
 			scanner.scan(target, config, context).await
 		}
 		ScannerType::Xss => {
@@ -346,7 +347,8 @@ async fn run_scanner(
 			scanner.scan(target, config, context).await
 		}
 		ScannerType::Ssrf => {
-			let scanner = SsrfScanner::new(config);
+			// Use native scanner (no external tools needed)
+			let scanner = NativeSsrfScanner::new(config);
 			scanner.scan(target, config, context).await
 		}
 		ScannerType::SupplyChain => {

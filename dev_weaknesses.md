@@ -65,8 +65,10 @@
 6. ~~XXE scanner~~ ✅ 2026-09-18
 7. ~~SSTI scanner~~ ✅ 2026-09-18
 8. ~~PDF/CSV report export~~ ✅ 2026-09-18 (CSV native + HTML print-to-PDF)
-9. Browser-based scanning (Playwright integration)
-10. JWT brute-force (optional, opt-in)
+9. ~~`--checks all` crashes when tools missing~~ ✅ 2026-09-21 (graceful degradation)
+10. ~~XSS scanner loses findings on dalfox exit code 1~~ ✅ 2026-09-21 (parse error JSON)
+11. Browser-based scanning (Playwright integration)
+12. JWT brute-force (optional, opt-in)
 
 ---
 
@@ -74,6 +76,9 @@
 
 | Fecha | Riesgo | Acción tomada | Resultado |
 |-------|--------|---------------|-----------|
+| 2026-09-21 | `--checks all` crashes sin sqlmap/ssrfmap | Tool existence check antes de ejecutar | ✅ Resuelto |
+| 2026-09-21 | XSS scanner pierde findings (dalfox exit 1) | Parse JSON del error output | ✅ Resuelto |
+| 2026-09-21 | Puerto 3000 conflicto con Juice Shop | docker-compose → puerto 3001 | ✅ Resuelto |
 | 2026-09-18 | 133 dead code warnings | cargo fix + #[allow(dead_code)] | ✅ 0 warnings |
 | 2026-09-18 | JWT sin entropy analysis | Shannon entropy + common secrets | ✅ Resuelto |
 | 2026-09-18 | Sin GraphQL introspection | graphql.rs scanner | ✅ Resuelto |

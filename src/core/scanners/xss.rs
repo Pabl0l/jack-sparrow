@@ -120,14 +120,62 @@ impl Scanner for XssScanner {
 		let runner = builder.build();
 
 		// Execute scan
-		let result: DalfoxResult =
-			runner
-				.scan_url(target)
-				.await
-				.map_err(|e| JackSparrowError::ToolExecutionFailed {
+		let result: DalfoxResult = match runner.scan_url(target).await {
+			Ok(r) => r,
+			Err(e) => {
+				// dalfox exits with code 1 when it FINDS vulnerabilities (not a real error)
+				// Try to parse findings from the error message
+				let err_msg = e.to_string();
+				if let Some(json_start) = err_msg.find('{') {
+					if let Ok(json) = serde_json::from_str::<serde_json::Value>(&err_msg[json_start..]) {
+						if let Some(findings_arr) = json.get("findings").and_then(|f| f.as_array()) {
+							if !findings_arr.is_empty() {
+								// Parse dalfox findings from error JSON
+								let mut findings = Vec::new();
+								for f in findings_arr {
+									let param = f.get("param").and_then(|p| p.as_str()).unwrap_or("unknown").to_string();
+									let poc = f.get("payload").and_then(|p| p.as_str()).unwrap_or("").to_string();
+									let severity_str = f.get("severity").and_then(|s| s.as_str()).unwrap_or("low");
+									let severity = match severity_str {
+										"High" => Severity::High,
+										"Medium" => Severity::Medium,
+										_ => Severity::Low,
+									};
+
+									let mut finding = Finding::new(
+										VulnerabilityType::XssReflected,
+										severity,
+										Confidence::Confirmed,
+										format!("XSS in parameter: {}", param),
+										target.to_string(),
+										"dalfox".to_string(),
+									);
+									finding.parameter = Some(param);
+									finding.evidence = Evidence {
+										request: None,
+										response: None,
+										payload: Some(poc),
+										pattern: None,
+										context: f.get("evidence").and_then(|e| e.as_str()).map(|s| s.to_string()),
+									};
+									finding.cwe_id = Some("CWE-79".to_string());
+									finding.cvss_score = Some(6.1);
+									finding.remediation = "Encode output and validate input".to_string();
+									finding.references = vec!["https://owasp.org/www-community/attacks/xss/".to_string()];
+									findings.push(finding);
+								}
+								return Ok(findings);
+							}
+						}
+					}
+				}
+				// If we can't parse findings, return the error
+				return Err(JackSparrowError::ToolExecutionFailed {
 					tool: "dalfox".to_string(),
 					message: e.to_string(),
-				})?;
+				});
+			}
+		};
 
 		// Convert findings
 		let findings = self.convert_findings(result, target);

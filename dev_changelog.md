@@ -2,6 +2,103 @@
 
 ---
 
+## [2026-09-21 13:00] — Native SQLi + SSRF Scanners (Zero External Dependencies)
+
+### Qué se hizo
+- **Native SQL Injection Scanner** (`src/core/scanners/sqli_native.rs`): 
+  - Error-based detection (MySQL, PostgreSQL, MSSQL, Oracle, SQLite error patterns)
+  - Boolean-blind detection (compares true/false condition response lengths)
+  - Time-based blind detection (SLEEP, WAITFOR, pg_sleep)
+  - Database type identification from error messages
+  - 8 unit tests
+- **Native SSRF Scanner** (`src/core/scanners/ssrf_native.rs`):
+  - URL parameter detection (url, fetch, link, redirect, etc.)
+  - Internal endpoint probing (127.0.0.1, localhost, 0.0.0.0)
+  - Cloud metadata probing (AWS 169.254.169.254, GCP, Azure)
+  - Internal data leak detection (/etc/passwd, connection strings, private IPs)
+  - Blind SSRF detection via response comparison
+  - 7 unit tests
+- **Engine updated**: SQLi and SSRF now use native scanners as primary, with sqlmap/ssrfmap as optional tools
+- **Tool graceful degradation**: sqlmap/ssrfmap warnings no longer crash the scan
+
+### Por qué (Justificación)
+- sqlmap is broken on Python 3.14 (module import error)
+- ssrfmap requires manual GitHub clone + Python setup
+- Native Rust scanners work on any platform with zero dependencies
+- Critical for distribution — users shouldn't need to install Python tools
+
+### Resultado
+- 312 unit tests passing, 0 failures
+- Full scan against SSRF Lab: 29 findings (3 HIGH, 18 MEDIUM, 5 LOW, 3 INFO)
+- SSRF detected natively without ssrfmap
+- SQLi scanner ready for targets with SQL parameters
+
+### Archivos modificados
+- `src/core/scanners/sqli_native.rs` — **NUEVO** (~400 líneas, 8 tests)
+- `src/core/scanners/ssrf_native.rs` — **NUEVO** (~300 líneas, 7 tests)
+- `src/core/scanners/mod.rs` — Added native scanner module declarations
+- `src/core/engine.rs` — SQLi/SSRF now use native scanners, removed unused imports
+
+---
+
+### Qué se hizo
+- **Graceful degradation for missing tools**: sqlmap and ssrfmap scanners now check if the binary exists before trying to execute it. If missing, they print a warning and return empty findings instead of crashing the entire scan.
+- **XSS scanner fix**: dalfox exits with code 1 when it FINDS vulnerabilities (not a real error). The scanner now parses the JSON findings from dalfox's error output instead of treating it as a failure.
+- **DVWA docker-compose fix**: Changed Juice Shop port from 3000 to 3001 (port 3000 was conflicting with other services).
+- **Full scan validated**: `--checks all` now runs all 18 scanners without crashing, even when sqlmap/ssrfmap are not installed.
+
+### Por qué (Justificación)
+- `--checks all` was unusable if sqlmap or ssrfmap weren't installed — the entire scan would crash with `ToolExecutionFailed`
+- dalfox's exit code 1 behavior is documented but the scanner wasn't handling it, causing real XSS findings to be lost
+- DVWA port conflict prevented lab setup on systems with port 3000 already in use
+
+### Resultado
+- 315 tests passing (297 unit + 8 integration + 10 E2E)
+- Full scan against SSRF Lab: 28 findings (2 HIGH, 18 MEDIUM, 5 LOW, 3 INFO)
+- XSS detection confirmed: dalfox found real XSS in SSRF Lab's `url` parameter
+- All 18 scanners run gracefully — sqlmap/ssrfmap skip with warning, not crash
+
+### Archivos modificados
+- `src/core/scanners/sqli.rs` — Added tool existence check before execution
+- `src/core/scanners/ssrf.rs` — Added tool existence check before execution
+- `src/core/scanners/xss.rs` — Parse dalfox findings from exit code 1 error output
+- `lab/docker-compose.yml` — Juice Shop port 3000 → 3001
+
+---
+
+## [2026-09-21 11:30] — Production Readiness: CI/CD + README + Release Workflow
+
+### Qué se hizo
+- **CI Pipeline** (`.github/workflows/ci.yml`): Rustfmt check, Clippy lint, unit/integration/E2E tests on Ubuntu + Windows, release build with artifact upload
+- **Release Workflow** (`.github/workflows/release.yml`): Cross-platform builds (Linux amd64/arm64, Windows amd64, macOS amd64/arm64), SHA256 checksums, GitHub Releases with auto-generated release notes, prerelease detection for alpha/beta/rc tags
+- **README.md completo**: 18 scanners documentados, badges de CI/Release, arquitectura actualizada, todos los checks disponibles, config example v0.4.0, roadmap actualizado
+- **Cargo.toml mejorado**: Description actualizada (18 vulnerability types), keywords y categories para crates.io
+
+### Por qué (Justificación)
+- Sin CI/CD no hay validación automática de calidad en PRs
+- Sin release workflow no hay forma de distribuir binarios compilados
+- README desactualizado confunde usuarios (decía 10 scanners, eran 18)
+- Keywords/categories en Cargo.toml mejoran discoverability si se publica en crates.io
+
+### Decisiones tomadas
+- **CI matrix**: Ubuntu + Windows (los 2 OS más usados para pentesting)
+- **Release targets**: 5 plataformas (Linux amd64/arm64, Windows amd64, macOS amd64/arm64)
+- **Release trigger**: Tags `v*` — permite `v0.4.0`, `v0.5.0-rc1`, etc.
+- **Prerelease detection**: Tags con `-alpha`, `-beta`, `-rc` se marcan como prerelease automáticamente
+
+### Resultado
+- CI ejecuta test + clippy + fmt en cada PR/push
+- `git tag v0.4.0 && git push --tags` genera release con binarios para 5 plataformas
+- README refleja el estado real del proyecto
+
+### Archivos modificados
+- `.github/workflows/ci.yml` — **NUEVO** — CI pipeline
+- `.github/workflows/release.yml` — **NUEVO** — Cross-platform release
+- `README.md` — Reescrito completamente (18 scanners, v0.4.0, architecture, roadmap)
+- `Cargo.toml` — Description, keywords, categories actualizados
+
+---
+
 ## [2026-09-18 23:30] — v0.4.1: CSV Report + PDF Print + Version Fix
 
 ### Qué se hizo

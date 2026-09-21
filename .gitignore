@@ -17,6 +17,7 @@ Thumbs.db
 lab/*/data/
 lab/*/volumes/
 lab/sqlmap/
+lab/lab/sqlmap/
 
 # Reports (scan output — never commit)
 reports/

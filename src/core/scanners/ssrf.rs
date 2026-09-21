@@ -108,6 +108,22 @@ impl Scanner for SsrfScanner {
 		context: &ScanContext,
 	) -> Result<Vec<Finding>, JackSparrowError> {
 		let ssrfmap_path = &config.tools.ssrfmap_path;
+
+		// Check if ssrfmap is available before trying to run it
+		match std::process::Command::new(ssrfmap_path)
+			.arg("--help")
+			.output()
+		{
+			Ok(_) => {} // ssrfmap is available, continue
+			Err(_) => {
+				eprintln!(
+					"WARNING: ssrfmap not found at '{}'. SSRF scanner skipped.",
+					ssrfmap_path
+				);
+				return Ok(Vec::new());
+			}
+		}
+
 		let ssrf_config = &config.scanners.ssrf;
 
 		// Create request file (with cookies and headers)

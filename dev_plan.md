@@ -33,13 +33,15 @@
 ---
 
 ## Estado Actual
-- **Última actualización:** 2026-09-18
+- **Última actualización:** 2026-09-21
 - **Progreso general:** ~100%
 - **Versión:** 0.4.0
-- **Tests:** 261 unit/integration
+- **Tests:** 315 (297 unit + 8 integration + 10 E2E)
 - **Warnings:** 0
 - **Instalado globalmente:** `sparrow` command via `cargo install`
-- **Siguiente paso:** P4 — Browser-based scanning, PDF/CSV reports, OAuth/OIDC testing
+- **CI/CD:** GitHub Actions (ci.yml + release.yml)
+- **Bugs corregidos:** Graceful tool degradation, XSS parser fix, Juice Shop port
+- **Siguiente paso:** P4 — Browser-based scanning, OAuth/OIDC testing
 
 ---
 

@@ -99,6 +99,22 @@ impl Scanner for SqlInjectionScanner {
 		context: &ScanContext,
 	) -> Result<Vec<Finding>, JackSparrowError> {
 		let sqlmap_path = &config.tools.sqlmap_path;
+
+		// Check if sqlmap is available before trying to run it
+		match std::process::Command::new(sqlmap_path)
+			.arg("--version")
+			.output()
+		{
+			Ok(_) => {} // sqlmap is available, continue
+			Err(_) => {
+				eprintln!(
+					"WARNING: sqlmap not found at '{}'. SQL Injection scanner skipped.",
+					sqlmap_path
+				);
+				return Ok(Vec::new());
+			}
+		}
+
 		let sqli_config = &config.scanners.sqli;
 
 		// Create temp file for sqlmap output

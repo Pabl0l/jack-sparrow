@@ -3,9 +3,11 @@ name = "jack-sparrow"
 version = "0.4.0"
 edition = "2021"
 authors = ["Jack Sparrow Crew"]
-description = "Professional web pentesting tool — find SQLi, XSS, IDOR, SSRF, and Supply Chain vulnerabilities"
+description = "Professional web pentesting tool — detect 18 vulnerability types including SQLi, XSS, SSRF, XXE, SSTI, and more"
 license = "MIT"
 repository = "https://github.com/your-repo/jack-sparrow"
+keywords = ["security", "pentesting", "vulnerability-scanner", "owasp", "web-security"]
+categories = ["command-line-utilities", "web-programming", "security"]
 
 [[bin]]
 name = "sparrow"
@@ -73,7 +75,7 @@ async-channel = "1"           # Async mpsc channels for frontier queue
 
 # Tracing
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["fmt"] }
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 
 # Async utilities (join_all, streams)
 futures = "0.3"
@@ -88,6 +90,7 @@ tempfile = "3"
 criterion = { version = "0.5", features = ["html_reports"] }
 reqwest = { version = "0.12", features = ["cookies"] }
 url = "2"
+tokio-test = "0.4"
 
 [[bench]]
 name = "scanner_bench"
