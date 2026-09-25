@@ -29,6 +29,12 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 			timeout,
 			cookie,
 			header,
+			login_url,
+			login_user,
+			login_pass,
+			login_field_user,
+			login_field_pass,
+			login_field,
 		} => {
 			execute_scan(
 				&target,
@@ -40,6 +46,12 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 				timeout,
 				cookie.as_deref(),
 				&header,
+				login_url.as_deref(),
+				login_user.as_deref(),
+				login_pass.as_deref(),
+				&login_field_user,
+				&login_field_pass,
+				&login_field,
 				&config,
 			)
 			.await
@@ -85,6 +97,12 @@ async fn execute_scan(
 	timeout: u64,
 	cookie: Option<&str>,
 	raw_headers: &[String],
+	login_url: Option<&str>,
+	login_user: Option<&str>,
+	login_pass: Option<&str>,
+	login_field_user: &str,
+	login_field_pass: &str,
+	login_fields: &[String],
 	config: &JackSparrowConfig,
 ) -> Result<(), JackSparrowError> {
 	println!(
@@ -94,16 +112,59 @@ async fn execute_scan(
 	println!("Checks: {}", checks);
 	println!("Concurrency: {}", concurrency);
 	println!("Timeout: {}s", timeout);
-	if cookie.is_some() {
-		println!("Auth: cookies provided");
-	}
 
-	// Build scan context
-	let context = ScanContext {
+	// Build scan context — start with explicit cookies/headers
+	let mut context = ScanContext {
 		cookies: cookie.map(|s| s.to_string()),
 		headers: parse_headers(raw_headers),
 		session: session.map(|p| p.to_path_buf()),
 	};
+
+	// Perform form login if requested
+	if let (Some(url), Some(user), Some(pass)) = (login_url, login_user, login_pass) {
+		println!("Auth: performing form login to {}", url);
+
+		// Parse extra fields
+		let extra_fields: Vec<(String, String)> = login_fields
+			.iter()
+			.filter_map(|f| {
+				let mut parts = f.splitn(2, '=');
+				let name = parts.next()?.to_string();
+				let value = parts.next()?.to_string();
+				Some((name, value))
+			})
+			.collect();
+
+		let login_config = crate::shared::auth::AuthConfig::FormLogin {
+			login_url: url.to_string(),
+			username: user.to_string(),
+			password: pass.to_string(),
+			username_field: login_field_user.to_string(),
+			password_field: login_field_pass.to_string(),
+			extra_fields,
+			success_indicator: None,
+		};
+
+		let executor = crate::shared::auth::FormLoginExecutor::new();
+		match executor.login_to_context(&login_config).await {
+			Ok(login_ctx) => {
+				// Merge login cookies into context
+				if let Some(cookies) = login_ctx.cookies {
+					println!("Auth: login successful, cookies: {}", &cookies[..cookies.len().min(50)]);
+					context.cookies = Some(cookies);
+				}
+			}
+			Err(e) => {
+				eprintln!("\n{} {}", "Login failed:".red().bold(), e.red());
+				return Err(JackSparrowError::ToolExecutionFailed {
+					tool: "form-login".to_string(),
+					message: e,
+				});
+			}
+		}
+	} else if cookie.is_some() {
+		println!("Auth: cookies provided");
+	}
 
 	let mut engine = ScanEngine::new(config.clone());
 

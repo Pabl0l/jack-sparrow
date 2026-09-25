@@ -20,6 +20,10 @@ use crate::core::scanners::ssti::SstiScanner;
 use crate::core::scanners::xss::XssScanner;
 use crate::core::scanners::sqli_native::NativeSqlScanner;
 use crate::core::scanners::ssrf_native::NativeSsrfScanner;
+use crate::core::scanners::file_upload::FileUploadScanner;
+use crate::core::scanners::csrf::CsrfScanner;
+use crate::core::scanners::form_injection::FormInjectionScanner;
+use crate::core::scanners::crawl_integration::{ParamType, ScanParam, ScanTarget, TargetType};
 use crate::core::scanners::{Scanner, ScannerType};
 use crate::shared::config::JackSparrowConfig;
 use crate::shared::context::ScanContext;
@@ -173,6 +177,9 @@ impl ScanEngine {
 				ScannerType::CloudMetadata,
 				ScannerType::Xxe,
 				ScannerType::Ssti,
+				ScannerType::FormInjection,
+				ScannerType::Csrf,
+				ScannerType::FileUpload,
 			]);
 		}
 
@@ -205,25 +212,28 @@ impl ScanEngine {
 			"cloud-metadata" | "cloud" | "imds" => types.push(ScannerType::CloudMetadata),
 			"xxe" | "xml-external" => types.push(ScannerType::Xxe),
 			"ssti" | "template-injection" => types.push(ScannerType::Ssti),
-				_ => {
-					return Err(JackSparrowError::ConfigError {
-						message: format!(
-							"Unknown check: '{}'. Valid: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, all",
-							check
-						),
-					});
-				}
+			"form" | "form-injection" | "post" => types.push(ScannerType::FormInjection),
+			"csrf" | "cross-site-request-forgery" => types.push(ScannerType::Csrf),
+			"upload" | "file-upload" => types.push(ScannerType::FileUpload),
+			_ => {
+				return Err(JackSparrowError::ConfigError {
+					message: format!(
+						"Unknown check: '{}'. Valid: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, form, csrf, upload, all",
+						check
+					),
+				});
 			}
 		}
-
-		if types.is_empty() {
-			return Err(JackSparrowError::ConfigError {
-				message: "No valid checks specified".to_string(),
-			});
-		}
-
-		Ok(types)
 	}
+
+	if types.is_empty() {
+		return Err(JackSparrowError::ConfigError {
+			message: "No valid checks specified".to_string(),
+		});
+	}
+
+	Ok(types)
+}
 
 	/// Run a scan using crawl results to discover targets automatically.
 	///
@@ -317,6 +327,134 @@ impl ScanEngine {
 	}
 }
 
+/// Discover forms from a target URL by fetching HTML and parsing <form> tags.
+/// Returns ScanTarget objects suitable for FormInjection and CSRF scanners.
+async fn discover_form_targets(
+	target_url: &str,
+	context: &ScanContext,
+) -> Vec<ScanTarget> {
+	let mut default_headers = reqwest::header::HeaderMap::new();
+
+	// Apply cookies from context
+	if let Some(ref cookies) = context.cookies {
+		if let Ok(cookie_value) = reqwest::header::HeaderValue::from_str(cookies) {
+			default_headers.insert(reqwest::header::COOKIE, cookie_value);
+		}
+	}
+
+	// Apply custom headers from context
+	for (key, value) in &context.headers {
+		if let (Ok(k), Ok(v)) = (
+			reqwest::header::HeaderName::from_bytes(key.as_bytes()),
+			reqwest::header::HeaderValue::from_str(value),
+		) {
+			default_headers.insert(k, v);
+		}
+	}
+
+	let client = match reqwest::Client::builder()
+		.timeout(std::time::Duration::from_secs(10))
+		.danger_accept_invalid_certs(true)
+		.default_headers(default_headers)
+		.build()
+	{
+		Ok(c) => c,
+		Err(_) => return Vec::new(),
+	};
+
+	let resp = match client.get(target_url).send().await {
+		Ok(r) => r,
+		Err(_) => return Vec::new(),
+	};
+
+	let html = match resp.text().await {
+		Ok(t) => t,
+		Err(_) => return Vec::new(),
+	};
+
+	let mut targets = Vec::new();
+
+	// Parse all <form> tags from the HTML
+	let document = scraper::Html::parse_document(&html);
+	let form_selector = scraper::Selector::parse("form").unwrap();
+
+	for form_el in document.select(&form_selector) {
+		let action = form_el
+			.attr("action")
+			.unwrap_or("/")
+			.to_string();
+
+		let method_str = form_el
+			.attr("method")
+			.unwrap_or("GET")
+			.to_uppercase();
+
+		let method = crate::core::crawler::parser::Method::from_str(&method_str);
+
+		// Resolve relative action URLs
+		// Action "#" or "" means submit to current page
+		let form_url_str = if action == "#" || action.is_empty() || action == "." {
+			// Strip fragment from target URL — use only the page URL
+			target_url.split('#').next().unwrap_or(target_url).to_string()
+		} else if action.starts_with("http") {
+			action.split('#').next().unwrap_or(&action).to_string()
+		} else if action.starts_with('/') {
+			if let Ok(parsed) = url::Url::parse(target_url) {
+				format!("{}://{}{}", parsed.scheme(), parsed.authority(), action)
+			} else {
+				format!("{}{}", target_url.trim_end_matches('/'), action)
+			}
+		} else {
+			format!("{}/{}", target_url.trim_end_matches('/'), action)
+		};
+
+		let form_url = match url::Url::parse(&form_url_str) {
+			Ok(u) => u,
+			Err(_) => continue,
+		};
+
+		// Extract form fields
+		let input_selector = scraper::Selector::parse("input, textarea, select").unwrap();
+		let mut params = Vec::new();
+
+		for input_el in form_el.select(&input_selector) {
+			let name = match input_el.attr("name") {
+				Some(n) => n.to_string(),
+				None => continue,
+			};
+
+			let input_type = input_el.attr("type").unwrap_or("text");
+			let value = input_el.attr("value").map(|v| v.to_string());
+			let is_hidden = input_type == "hidden";
+
+			let param_type = match method_str.as_str() {
+				"POST" => ParamType::Body,
+				_ => ParamType::Query,
+			};
+
+			params.push(ScanParam {
+				name,
+				param_type,
+				value,
+				is_hidden,
+			});
+		}
+
+		if !params.is_empty() {
+			targets.push(ScanTarget {
+				url: form_url,
+				method,
+				target_type: TargetType::Form,
+				params,
+				source_url: Some(target_url.to_string()),
+				depth: 0,
+			});
+		}
+	}
+
+	targets
+}
+
 /// Run a single scanner against a target — used by concurrent futures
 async fn run_scanner(
 	scanner_type: ScannerType,
@@ -397,6 +535,30 @@ async fn run_scanner(
 		}
 		ScannerType::Ssti => {
 			let scanner = SstiScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+	ScannerType::FormInjection => {
+		// Auto-discover forms from target URL, then run injection tests
+		let targets = discover_form_targets(target, context).await;
+		if targets.is_empty() {
+			Ok(Vec::new())
+		} else {
+			let scanner = FormInjectionScanner::new(config);
+			scanner.scan_with_targets(&targets.iter().collect::<Vec<_>>(), context).await
+		}
+		}
+		ScannerType::Csrf => {
+			// Auto-discover forms from target URL, then run CSRF tests
+			let targets = discover_form_targets(target, context).await;
+			if targets.is_empty() {
+				Ok(Vec::new())
+			} else {
+				let scanner = CsrfScanner::new(config);
+				scanner.scan_with_targets(&targets.iter().collect::<Vec<_>>(), context).await
+			}
+		}
+		ScannerType::FileUpload => {
+			let scanner = FileUploadScanner::new(config);
 			scanner.scan(target, config, context).await
 		}
 	}

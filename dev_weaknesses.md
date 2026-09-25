@@ -27,6 +27,20 @@
 
 ---
 
+## Nuevos Weaknesses (2026-09-23)
+
+### 20. dalfox XSS scanner no recibe cookies de autenticación
+- **Riesgo**: Medio — dalfox no puede escanear targets que requieren login (DVWA, apps autenticadas)
+- **Probabilidad**: Alta en entornos con auth
+- **Mitigación**: Pendiente — pasar cookies al comando dalfox. Por ahora, XSS solo funciona en targets públicos.
+
+### 21. Stored XSS no detectado por form injection
+- **Riesgo**: Bajo — form injection prueba reflected XSS en la misma request, stored necesita reload
+- **Probabilidad**: N/A (limitación conocida)
+- **Mitigación**: Stored XSS requiere crawl + reload pattern. Scanner separado `stored_xss.rs` maneja esto con crawl.
+
+---
+
 ## Nuevos Weaknesses (2026-09-18)
 
 ### 15. GraphQL introspection bypass
@@ -67,6 +81,10 @@
 8. ~~PDF/CSV report export~~ ✅ 2026-09-18 (CSV native + HTML print-to-PDF)
 9. ~~`--checks all` crashes when tools missing~~ ✅ 2026-09-21 (graceful degradation)
 10. ~~XSS scanner loses findings on dalfox exit code 1~~ ✅ 2026-09-21 (parse error JSON)
+11. ~~Form injection POST-only~~ ✅ 2026-09-23 (GET + POST support)
+12. ~~discover_form_targets sin cookies~~ ✅ 2026-09-23 (cookie passthrough)
+13. ~~Form action `#` breaks query params~~ ✅ 2026-09-23 (strip fragments)
+14. dalfox XSS scanner sin cookies → Pendiente
 11. Browser-based scanning (Playwright integration)
 12. JWT brute-force (optional, opt-in)
 
@@ -82,6 +100,9 @@
 | 2026-09-18 | 133 dead code warnings | cargo fix + #[allow(dead_code)] | ✅ 0 warnings |
 | 2026-09-18 | JWT sin entropy analysis | Shannon entropy + common secrets | ✅ Resuelto |
 | 2026-09-18 | Sin GraphQL introspection | graphql.rs scanner | ✅ Resuelto |
+| 2026-09-23 | Form injection solo POST | GET form support (test_*_get methods) | ✅ Resuelto |
+| 2026-09-23 | discover_form_targets sin cookies | Cookie passthrough from ScanContext | ✅ Resuelto |
+| 2026-09-23 | Form action `#` breaks query params | Strip fragment from resolved URLs | ✅ Resuelto |
 | 2026-09-18 | Sin API security testing | api_security.rs scanner | ✅ Resuelto |
 | 2026-09-18 | sparrow no era global command | cargo install --path . | ✅ Resuelto |
 | 2026-09-18 | Sin cloud metadata SSRF | cloud_metadata.rs (AWS/GCP/Azure) | ✅ Resuelto |

@@ -33,14 +33,14 @@
 ---
 
 ## Estado Actual
-- **Última actualización:** 2026-09-21
+- **Última actualización:** 2026-09-23
 - **Progreso general:** ~100%
 - **Versión:** 0.4.0
-- **Tests:** 315 (297 unit + 8 integration + 10 E2E)
-- **Warnings:** 0
+- **Tests:** 378 (360 unit + 8 integration + 10 E2E)
+- **Warnings:** 9 (dead code — unused scanner constructors and bypass payloads)
 - **Instalado globalmente:** `sparrow` command via `cargo install`
 - **CI/CD:** GitHub Actions (ci.yml + release.yml)
-- **Bugs corregidos:** Graceful tool degradation, XSS parser fix, Juice Shop port
+- **Bugs corregidos:** Form action `#` fix, cookie passthrough in form discovery, GET form injection support
 - **Siguiente paso:** P4 — Browser-based scanning, OAuth/OIDC testing
 
 ---

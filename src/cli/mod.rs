@@ -60,6 +60,30 @@ pub enum Commands {
         /// Custom HTTP header (repeatable, format: "Key: Value")
         #[arg(long)]
         header: Vec<String>,
+
+        /// Login URL for form-based authentication (POST target)
+        #[arg(long)]
+        login_url: Option<String>,
+
+        /// Username for form login
+        #[arg(long)]
+        login_user: Option<String>,
+
+        /// Password for form login
+        #[arg(long)]
+        login_pass: Option<String>,
+
+        /// Username form field name (default: "username")
+        #[arg(long, default_value = "username")]
+        login_field_user: String,
+
+        /// Password form field name (default: "password")
+        #[arg(long, default_value = "password")]
+        login_field_pass: String,
+
+        /// Extra form field for login (repeatable, format: "name=value")
+        #[arg(long)]
+        login_field: Vec<String>,
     },
 
     /// Record a browser session for later scanning

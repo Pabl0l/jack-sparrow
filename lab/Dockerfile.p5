@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install flask
+COPY p5-lab.py .
+EXPOSE 5555
+CMD ["python", "p5-lab.py"]

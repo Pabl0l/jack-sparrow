@@ -2,6 +2,45 @@
 
 ---
 
+## [2026-09-23 20:00] — Form Injection GET Support + Cookie Auth + DVWA Full Scan
+
+### Qué se hizo
+- **Form Injection Scanner — GET form support** (`src/core/scanners/form_injection.rs`):
+  - Added `send_get()` — sends GET requests with query parameters
+  - Added `build_query_params()` — builds query params from ScanTarget
+  - Added `test_sqli_get()` — SQLi detection via GET parameters (error-based, boolean-blind)
+  - Added `test_xss_get()` — XSS detection via GET parameters (reflection check)
+  - Added `test_ssti_get()` — SSTI detection via GET parameters (template evaluation)
+  - Added `make_sqli_finding_get()`, `make_bool_finding_get()` — GET-specific finding builders
+  - Updated `scan_with_targets()` to dispatch GET forms to GET tests, POST to POST tests
+- **discover_form_targets cookie passthrough** (`src/core/engine.rs`):
+  - Fixed `discover_form_targets()` to send cookies and headers from `ScanContext`
+  - Builds `reqwest::Client` with `default_headers` including Cookie header
+- **Form action `#` fix** (`src/core/engine.rs`):
+  - Form actions `#`, `""`, `"."` now resolve to the target URL (not `target/#`)
+  - Fragment identifiers (`#`) stripped from resolved URLs to prevent query params being invisible to server
+- **DVWA database setup** (`lab/dvwa_setup.sql`):
+  - Created `users`, `guests`, `tokens` tables
+  - Inserted 5 default users (admin, gordonb, 1337, pablo, smithy)
+
+### Decisiones tomadas
+- **Opción A**: Keep form injection POST-only → Rechazada: many vulnerable forms use GET (DVWA SQLi, XSS reflected)
+- **Opción B**: Support both GET and POST forms → Elegida: more realistic coverage, detects real vulnerabilities
+
+### Resultado
+- **DVWA SQLi scan**: HIGH SQL Injection in GET param `id` + 6 missing headers (7 total findings)
+- **DVWA XSS Reflected**: HIGH XSS in GET param `name`
+- **All 360 unit tests passing**
+- **9/9 P5 E2E tests passing**
+- **12/12 lab E2E tests passing**
+
+### Archivos modificados
+- `src/core/scanners/form_injection.rs` — Added GET support (send_get, build_query_params, test_*_get methods)
+- `src/core/engine.rs` — Cookie passthrough in discover_form_targets, action `#` fix
+- `lab/dvwa_setup.sql` — DVWA database schema + seed data
+
+---
+
 ## [2026-09-21 13:00] — Native SQLi + SSRF Scanners (Zero External Dependencies)
 
 ### Qué se hizo

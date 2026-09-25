@@ -55,6 +55,9 @@ pub fn auto_cvss(vuln_type: &VulnerabilityType, severity: &Severity) -> Option<f
         VulnerabilityType::ApiSecurity => 5.3,
         VulnerabilityType::Xxe => 8.5,
         VulnerabilityType::Ssti => 9.8,
+        VulnerabilityType::FormInjection => 8.6,
+        VulnerabilityType::Csrf => 8.0,
+        VulnerabilityType::FileUpload => 8.0,
     };
 
     // Adjust based on severity
@@ -95,6 +98,9 @@ pub fn specific_remediation(vuln_type: &VulnerabilityType) -> &'static str {
         VulnerabilityType::ApiSecurity => "Implement proper authentication and authorization on all API endpoints. Use CORS allowlists. Disable TRACE method. Replace verbose error messages with generic responses. Add rate limiting.",
         VulnerabilityType::Xxe => "Disable XML external entity processing. Use JSON instead of XML where possible. Configure XML parsers to disallow DTDs and external entities. Implement input validation.",
         VulnerabilityType::Ssti => "Never render user input in templates. Use sandboxed template environments. Implement auto-escaping. Validate and sanitize all user input. Use whitelisting for allowed template syntax.",
+        VulnerabilityType::FormInjection => "Use parameterized queries for SQL. Encode output for XSS. Sanitize input for SSTI. Validate all form inputs server-side.",
+        VulnerabilityType::Csrf => "Add CSRF tokens to all state-changing forms. Validate tokens server-side. Use SameSite cookies. Check Origin/Referer headers.",
+        VulnerabilityType::FileUpload => "Validate file extensions against an allowlist. Validate Content-Type from file content. Store uploads outside web root. Use random filenames. Scan with antivirus.",
     }
 }
 
@@ -168,6 +174,9 @@ fn default_cwe(vuln_type: &VulnerabilityType) -> Option<String> {
         VulnerabilityType::ApiSecurity => "CWE-284",
         VulnerabilityType::Xxe => "CWE-611",
         VulnerabilityType::Ssti => "CWE-1336",
+        VulnerabilityType::FormInjection => "CWE-89",
+        VulnerabilityType::Csrf => "CWE-352",
+        VulnerabilityType::FileUpload => "CWE-434",
     };
     Some(cwe.to_string())
 }
@@ -224,6 +233,9 @@ fn generate_csv(results: &ScanResults) -> Result<String, std::fmt::Error> {
             VulnerabilityType::ApiSecurity => "API Security",
             VulnerabilityType::Xxe => "XML External Entity",
             VulnerabilityType::Ssti => "Server-Side Template Injection",
+            VulnerabilityType::FormInjection => "Form Injection",
+            VulnerabilityType::Csrf => "Cross-Site Request Forgery",
+            VulnerabilityType::FileUpload => "Unrestricted File Upload",
         };
 
         writeln!(
@@ -518,6 +530,9 @@ fn generate_html(results: &ScanResults) -> Result<String, std::fmt::Error> {
             VulnerabilityType::ApiSecurity => "API Security",
             VulnerabilityType::Xxe => "XML External Entity",
             VulnerabilityType::Ssti => "Server-Side Template Injection",
+            VulnerabilityType::FormInjection => "Form Injection",
+            VulnerabilityType::Csrf => "Cross-Site Request Forgery",
+            VulnerabilityType::FileUpload => "Unrestricted File Upload",
         };
 
         write!(
@@ -682,6 +697,9 @@ fn generate_markdown(results: &ScanResults) -> Result<String, std::fmt::Error> {
                 VulnerabilityType::ApiSecurity => "API Security",
                 VulnerabilityType::Xxe => "XML External Entity",
                 VulnerabilityType::Ssti => "Server-Side Template Injection",
+                VulnerabilityType::FormInjection => "Form Injection",
+                VulnerabilityType::Csrf => "Cross-Site Request Forgery",
+                VulnerabilityType::FileUpload => "Unrestricted File Upload",
             };
 
             writeln!(

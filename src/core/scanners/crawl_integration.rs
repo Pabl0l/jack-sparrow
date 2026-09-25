@@ -349,6 +349,28 @@ impl CrawlTargetExtractor {
                     })
                     .collect()
             }
+            ScannerType::FormInjection => {
+                // Form injection: only forms with POST method
+                targets
+                    .iter()
+                    .filter(|t| {
+                        t.target_type == TargetType::Form
+                    })
+                    .collect()
+            }
+            ScannerType::Csrf => {
+                // CSRF: forms with state-changing methods
+                targets
+                    .iter()
+                    .filter(|t| {
+                        t.target_type == TargetType::Form
+                    })
+                    .collect()
+            }
+            ScannerType::FileUpload => {
+                // File upload: all pages (scan for upload forms)
+                targets.iter().collect()
+            }
         }
     }
 

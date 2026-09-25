@@ -25,6 +25,9 @@ pub enum ScannerType {
 	CloudMetadata,
 	Xxe,
 	Ssti,
+	FormInjection,
+	Csrf,
+	FileUpload,
 }
 
 impl std::fmt::Display for ScannerType {
@@ -46,9 +49,12 @@ impl std::fmt::Display for ScannerType {
 			ScannerType::GraphQLIntrospection => write!(f, "GraphQL Introspection"),
 			ScannerType::ApiSecurity => write!(f, "API Security"),
 			ScannerType::CloudMetadata => write!(f, "Cloud Metadata SSRF"),
-			ScannerType::Xxe => write!(f, "XXE"),
-			ScannerType::Ssti => write!(f, "SSTI"),
-		}
+		ScannerType::Xxe => write!(f, "XXE"),
+		ScannerType::Ssti => write!(f, "SSTI"),
+		ScannerType::FormInjection => write!(f, "Form Injection"),
+		ScannerType::Csrf => write!(f, "CSRF"),
+		ScannerType::FileUpload => write!(f, "File Upload"),
+	}
 	}
 }
 
@@ -90,5 +96,9 @@ pub mod subdomain;
 pub mod supply_chain;
 pub mod tech_fingerprint;
 pub mod waf;
+pub mod waf_bypass;
 pub mod xss;
 pub mod xxe;
+pub mod form_injection;
+pub mod csrf;
+pub mod file_upload;

@@ -43,6 +43,12 @@ pub enum VulnerabilityType {
 	Xxe,
 	/// Server-Side Template Injection
 	Ssti,
+	/// Form injection (SQLi/XSS/SSTI via POST body)
+	FormInjection,
+	/// Cross-Site Request Forgery
+	Csrf,
+	/// Unrestricted file upload
+	FileUpload,
 }
 
 impl std::fmt::Display for VulnerabilityType {
@@ -66,6 +72,9 @@ impl std::fmt::Display for VulnerabilityType {
 			VulnerabilityType::ApiSecurity => write!(f, "API Security"),
 			VulnerabilityType::Xxe => write!(f, "XML External Entity"),
 			VulnerabilityType::Ssti => write!(f, "Server-Side Template Injection"),
+			VulnerabilityType::FormInjection => write!(f, "Form Injection"),
+			VulnerabilityType::Csrf => write!(f, "Cross-Site Request Forgery"),
+			VulnerabilityType::FileUpload => write!(f, "Unrestricted File Upload"),
 		}
 	}
 }

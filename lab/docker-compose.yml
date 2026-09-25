@@ -44,6 +44,16 @@ services:
     networks:
       - webscanner-net
 
+  p5-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile.p5
+    container_name: p5-lab
+    ports:
+      - "5555:5555"
+    networks:
+      - webscanner-net
+
 networks:
   webscanner-net:
     driver: bridge
