@@ -21,7 +21,7 @@ impl NativeSsrfScanner {
 		let mut headers = reqwest::header::HeaderMap::new();
 		headers.insert(
 			"User-Agent",
-			reqwest::header::HeaderValue::from_static("JackSparrow/0.4.0"),
+			reqwest::header::HeaderValue::from_static("JackSparrow/0.5.0"),
 		);
 		for (key, value) in &context.headers {
 			if let (Ok(k), Ok(v)) = (

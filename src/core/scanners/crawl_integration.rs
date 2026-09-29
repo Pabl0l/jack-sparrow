@@ -371,6 +371,52 @@ impl CrawlTargetExtractor {
                 // File upload: all pages (scan for upload forms)
                 targets.iter().collect()
             }
+            ScannerType::BrowserXss => {
+                // Browser XSS: all pages with scripts or params
+                targets
+                    .iter()
+                    .filter(|t| {
+                        t.target_type == TargetType::UrlWithParams
+                            || t.target_type == TargetType::Form
+                            || t.target_type == TargetType::PageWithScripts
+                    })
+                    .collect()
+            }
+            ScannerType::OAuthSecurity => {
+                // OAuth: all pages
+                targets.iter().collect()
+            }
+            ScannerType::RateLimitBypass => {
+                // Rate limit bypass: all pages (test for rate limiting)
+                targets.iter().collect()
+            }
+            ScannerType::JwtBruteForce => {
+                // JWT brute-force: needs JWT tokens from context, scan target page
+                targets.iter().collect()
+            }
+            ScannerType::ApiFuzzing => {
+                // API fuzzing: URLs with params and API endpoints
+                targets
+                    .iter()
+                    .filter(|t| {
+                        t.target_type == TargetType::UrlWithParams
+                            || t.target_type == TargetType::ApiEndpoint
+                            || t.target_type == TargetType::Form
+                    })
+                    .collect()
+            }
+            ScannerType::CorsDeep => {
+                // CORS: all pages
+                targets.iter().collect()
+            }
+            ScannerType::SubdomainTakeover => {
+                // Subdomain takeover: use target to derive subdomains
+                targets.iter().collect()
+            }
+            ScannerType::WebSocketSecurity => {
+                // WebSocket: all pages (test for WS upgrade)
+                targets.iter().collect()
+            }
         }
     }
 

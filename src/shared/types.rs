@@ -49,6 +49,12 @@ pub enum VulnerabilityType {
 	Csrf,
 	/// Unrestricted file upload
 	FileUpload,
+	/// Browser-based XSS detection (requires JavaScript rendering)
+	BrowserXss,
+	/// OAuth/OIDC security misconfiguration
+	OAuthSecurity,
+	/// Rate limit bypass or missing rate limiting
+	RateLimitBypass,
 }
 
 impl std::fmt::Display for VulnerabilityType {
@@ -75,6 +81,9 @@ impl std::fmt::Display for VulnerabilityType {
 			VulnerabilityType::FormInjection => write!(f, "Form Injection"),
 			VulnerabilityType::Csrf => write!(f, "Cross-Site Request Forgery"),
 			VulnerabilityType::FileUpload => write!(f, "Unrestricted File Upload"),
+			VulnerabilityType::BrowserXss => write!(f, "Browser XSS"),
+		VulnerabilityType::OAuthSecurity => write!(f, "OAuth/OIDC Security"),
+		VulnerabilityType::RateLimitBypass => write!(f, "Rate Limit Bypass"),
 		}
 	}
 }

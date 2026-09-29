@@ -35,6 +35,19 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 			login_field_user,
 			login_field_pass,
 			login_field,
+			browser,
+			visible,
+			oauth,
+			rate_limit,
+			jwt_bruteforce,
+			cors,
+			takeover,
+			websocket,
+			api_fuzz,
+			wordlist_subdomain,
+			wordlist_path,
+			wordlist_param,
+			wordlist_password,
 		} => {
 			execute_scan(
 				&target,
@@ -52,6 +65,15 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 				&login_field_user,
 				&login_field_pass,
 				&login_field,
+				browser,
+				visible,
+				oauth,
+				rate_limit,
+				jwt_bruteforce,
+				cors,
+				takeover,
+				websocket,
+				api_fuzz,
 				&config,
 			)
 			.await
@@ -64,7 +86,7 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 		Commands::CheckTools => execute_check_tools(&config),
 		Commands::InitConfig { output } => execute_init_config(&output),
 		Commands::Version => {
-			println!("Jack Sparrow 0.4.0");
+			println!("Jack Sparrow 0.5.0");
 			Ok(())
 		}
 	}
@@ -103,6 +125,15 @@ async fn execute_scan(
 	login_field_user: &str,
 	login_field_pass: &str,
 	login_fields: &[String],
+	browser: bool,
+	visible: bool,
+	oauth: bool,
+	rate_limit: bool,
+	jwt_bruteforce: bool,
+	cors: bool,
+	takeover: bool,
+	websocket: bool,
+	api_fuzz: bool,
 	config: &JackSparrowConfig,
 ) -> Result<(), JackSparrowError> {
 	println!(
@@ -112,6 +143,30 @@ async fn execute_scan(
 	println!("Checks: {}", checks);
 	println!("Concurrency: {}", concurrency);
 	println!("Timeout: {}s", timeout);
+	if browser {
+		println!("Browser: enabled{}", if visible { " (visible)" } else { "" });
+	}
+	if oauth {
+		println!("OAuth/OIDC: enabled");
+	}
+	if rate_limit {
+		println!("Rate Limit Bypass: enabled");
+	}
+	if jwt_bruteforce {
+		println!("JWT Brute-Force: enabled");
+	}
+	if cors {
+		println!("CORS Deep Testing: enabled");
+	}
+	if takeover {
+		println!("Subdomain Takeover: enabled");
+	}
+	if websocket {
+		println!("WebSocket Security: enabled");
+	}
+	if api_fuzz {
+		println!("API Fuzzing: enabled");
+	}
 
 	// Build scan context — start with explicit cookies/headers
 	let mut context = ScanContext {
@@ -166,6 +221,26 @@ async fn execute_scan(
 		println!("Auth: cookies provided");
 	}
 
+	// If any feature flag is enabled, add corresponding checks
+	let effective_checks = if browser || oauth || rate_limit || jwt_bruteforce || cors || takeover || websocket || api_fuzz {
+		if checks == "all" {
+			checks.to_string()
+		} else {
+			let mut extra = Vec::new();
+			if browser { extra.push("browser-xss"); }
+			if oauth { extra.push("oauth"); }
+			if rate_limit { extra.push("rate-limit"); }
+			if jwt_bruteforce { extra.push("jwt-bruteforce"); }
+			if cors { extra.push("cors"); }
+			if takeover { extra.push("subdomain-takeover"); }
+			if websocket { extra.push("websocket"); }
+			if api_fuzz { extra.push("api-fuzz"); }
+			format!("{},{}", checks, extra.join(","))
+		}
+	} else {
+		checks.to_string()
+	};
+
 	let mut engine = ScanEngine::new(config.clone());
 
 	// Pre-scan tool verification
@@ -179,7 +254,7 @@ async fn execute_scan(
 	}
 
 	let results = engine
-		.scan(target, checks, &context, concurrency, timeout)
+		.scan(target, &effective_checks, &context, concurrency, timeout)
 		.await?;
 
 	// Enrich findings with auto-CVSS and specific remediation

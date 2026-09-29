@@ -32,7 +32,7 @@
 ### 20. dalfox XSS scanner no recibe cookies de autenticación
 - **Riesgo**: Medio — dalfox no puede escanear targets que requieren login (DVWA, apps autenticadas)
 - **Probabilidad**: Alta en entornos con auth
-- **Mitigación**: Pendiente — pasar cookies al comando dalfox. Por ahora, XSS solo funciona en targets públicos.
+- **Mitigación**: [X] Resuelto — BrowserXssScanner pasa cookies via Playwright browser context. `--browser` flag habilita scanning autenticado.
 
 ### 21. Stored XSS no detectado por form injection
 - **Riesgo**: Bajo — form injection prueba reflected XSS en la misma request, stored necesita reload
@@ -84,9 +84,18 @@
 11. ~~Form injection POST-only~~ ✅ 2026-09-23 (GET + POST support)
 12. ~~discover_form_targets sin cookies~~ ✅ 2026-09-23 (cookie passthrough)
 13. ~~Form action `#` breaks query params~~ ✅ 2026-09-23 (strip fragments)
-14. dalfox XSS scanner sin cookies → Pendiente
-11. Browser-based scanning (Playwright integration)
-12. JWT brute-force (optional, opt-in)
+14. ~~dalfox XSS scanner sin cookies~~ ✅ 2026-09-25 (BrowserXssScanner with Playwright)
+15. Browser-based scanning (Playwright integration) ✅ 2026-09-25
+16. ~~JWT brute-force (optional, opt-in)~~ ✅ 2026-09-25 (JwtBruteForceScanner with HMAC brute-force + algorithm confusion)
+17. ~~OAuth/OIDC flow testing~~ ✅ 2026-09-25 (OAuthScanner with HTTP probing)
+18. ~~Rate limit bypass techniques~~ ✅ 2026-09-25 (RateLimitBypassScanner with method/header/URL/cookie bypass)
+19. ~~CORS deep testing~~ ✅ 2026-09-25 (CorsDeepScanner with origin/null/wildcard/subdomain/preflight)
+20. ~~Subdomain takeover detection~~ ✅ 2026-09-25 (SubdomainTakeoverScanner with service signature matching)
+21. ~~WebSocket security testing~~ ✅ 2026-09-25 (WebSocketSecurityScanner with upgrade/auth/CSWSH)
+22. ~~API fuzzing~~ ✅ 2026-09-25 (ApiFuzzingScanner with parameter/body/error/reflection detection)
+23. ~~Custom wordlists~~ ✅ 2026-09-25 (WordlistManager with file loading, caching, defaults)
+24. ~~Performance profiling~~ ✅ 2026-09-25 (PerfProfiler with per-scanner metrics and optimization suggestions)
+25. ~~Release v0.5.0~~ ✅ 2026-09-25 (Version bump, PerfProfiler integration, E2E tests)
 
 ---
 
@@ -94,6 +103,18 @@
 
 | Fecha | Riesgo | Acción tomada | Resultado |
 |-------|--------|---------------|-----------|
+| 2026-09-25 | dalfox XSS sin cookies | BrowserXssScanner with Playwright | ✅ Resuelto |
+| 2026-09-25 | OAuth/OIDC flow testing | OAuthScanner with HTTP probing + HTML analysis | ✅ Resuelto |
+| 2026-09-25 | Rate limit bypass techniques | RateLimitBypassScanner with method/header/URL/cookie bypass | ✅ Resuelto |
+| 2026-09-25 | JWT brute-force | JwtBruteForceScanner with HMAC brute-force + algorithm confusion | ✅ Resuelto |
+| 2026-09-25 | CORS deep testing | CorsDeepScanner with origin/null/wildcard/subdomain/preflight | ✅ Resuelto |
+| 2026-09-25 | Subdomain takeover | SubdomainTakeoverScanner with service signature matching | ✅ Resuelto |
+| 2026-09-25 | WebSocket security | WebSocketSecurityScanner with upgrade/auth/CSWSH | ✅ Resuelto |
+| 2026-09-25 | API fuzzing | ApiFuzzingScanner with parameter/body/error/reflection | ✅ Resuelto |
+| 2026-09-25 | Custom wordlists | WordlistManager with file loading, caching, defaults | ✅ Resuelto |
+| 2026-09-25 | Performance profiling | PerfProfiler with per-scanner metrics and suggestions | ✅ Resuelto |
+| 2026-09-25 | Release v0.5.0 | Version bump + PerfProfiler integration + E2E tests | ✅ Resuelto |
+| 2026-09-25 | Browser-based scanning pendiente | browser_xss.rs + playwright_browser.rs + browser_scanner.rs | ✅ Resuelto |
 | 2026-09-21 | `--checks all` crashes sin sqlmap/ssrfmap | Tool existence check antes de ejecutar | ✅ Resuelto |
 | 2026-09-21 | XSS scanner pierde findings (dalfox exit 1) | Parse JSON del error output | ✅ Resuelto |
 | 2026-09-21 | Puerto 3000 conflicto con Juice Shop | docker-compose → puerto 3001 | ✅ Resuelto |

@@ -421,6 +421,111 @@ async fn e2e_form_login_wrong_password_fails() {
 		}
 		Err(e) => {
 			println!("[FORMLOGIN] Correctly failed with wrong password: {}", e);
-		}
 	}
+}
+
+// ─── CORS Deep Testing ────────────────────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires P5 lab running on port 5555"]
+async fn test_cors_deep_scanner() {
+	if !is_lab_reachable().await {
+		eprintln!("SKIP: P5 lab not reachable at {}", LAB_URL);
+		return;
+	}
+
+	let config = test_config();
+	let scanner = jack_sparrow::core::scanners::cors_deep::CorsDeepScanner::new(&config);
+	let context = test_context();
+
+	let findings = scanner.scan(LAB_URL, &config, &context).await.unwrap();
+	// CORS scanner should find at least something (missing headers or misconfig)
+	println!("[CORS] Found {} findings", findings.len());
+	for f in &findings {
+		println!("  - {} [{}]", f.title, f.severity);
+	}
+}
+
+// ─── Subdomain Takeover ───────────────────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires P5 lab running on port 5555"]
+async fn test_subdomain_takeover_scanner() {
+	if !is_lab_reachable().await {
+		eprintln!("SKIP: P5 lab not reachable at {}", LAB_URL);
+		return;
+	}
+
+	let config = test_config();
+	let scanner = jack_sparrow::core::scanners::subdomain_takeover::SubdomainTakeoverScanner::new(&config);
+	let context = test_context();
+
+	let findings = scanner.scan(LAB_URL, &config, &context).await.unwrap();
+	// Takeover scanner checks subdomains — localhost likely won't have any
+	println!("[TAKEOVER] Found {} findings", findings.len());
+}
+
+// ─── WebSocket Security ───────────────────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires P5 lab running on port 5555"]
+async fn test_websocket_security_scanner() {
+	if !is_lab_reachable().await {
+		eprintln!("SKIP: P5 lab not reachable at {}", LAB_URL);
+		return;
+	}
+
+	let config = test_config();
+	let scanner = jack_sparrow::core::scanners::websocket_security::WebSocketSecurityScanner::new(&config);
+	let context = test_context();
+
+	let findings = scanner.scan(LAB_URL, &config, &context).await.unwrap();
+	// WS scanner checks for upgrade endpoints
+	println!("[WEBSOCKET] Found {} findings", findings.len());
+	for f in &findings {
+		println!("  - {} [{}]", f.title, f.severity);
+	}
+}
+
+// ─── API Fuzzing ──────────────────────────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires P5 lab running on port 5555"]
+async fn test_api_fuzzing_scanner() {
+	if !is_lab_reachable().await {
+		eprintln!("SKIP: P5 lab not reachable at {}", LAB_URL);
+		return;
+	}
+
+	let config = test_config();
+	let scanner = jack_sparrow::core::scanners::api_fuzzing::ApiFuzzingScanner::new(&config);
+	let context = test_context();
+
+	let findings = scanner.scan(LAB_URL, &config, &context).await.unwrap();
+	// API fuzzing should find reflection or errors
+	println!("[APIFUZZ] Found {} findings", findings.len());
+	for f in &findings {
+		println!("  - {} [{}]", f.title, f.severity);
+	}
+}
+
+// ─── Performance Profiler Integration ─────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires P5 lab running on port 5555"]
+async fn test_perf_profiler_integration() {
+	if !is_lab_reachable().await {
+		eprintln!("SKIP: P5 lab not reachable at {}", LAB_URL);
+		return;
+	}
+
+	let config = JackSparrowConfig::default();
+	let mut engine = jack_sparrow::core::engine::ScanEngine::new(config);
+	let context = test_context();
+
+	let results = engine.scan(LAB_URL, "headers,tech,secrets", &context, 4, 30).await.unwrap();
+	assert!(results.scan_duration_ms > 0, "Scan should have measurable duration");
+	assert!(!results.tools_used.is_empty(), "Should track tools used");
+	println!("[PERF] Scan completed in {}ms with {} findings", results.scan_duration_ms, results.findings.len());
+}
 }

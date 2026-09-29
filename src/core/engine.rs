@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::core::crawler::engine::CrawlResults;
+use crate::core::scanners::browser_xss::BrowserXssScanner;
 use crate::core::scanners::crawl_integration::CrawlTargetExtractor;
 use crate::core::scanners::dom_xss::DomXssScanner;
 use crate::core::scanners::headers::SecurityHeadersScanner;
@@ -30,6 +31,8 @@ use crate::shared::context::ScanContext;
 use crate::shared::error::JackSparrowError;
 use crate::shared::types::{Finding, ScanResults};
 use crate::shared::tool_checker;
+use crate::core::perf::PerfProfiler;
+use colored::Colorize;
 use futures::future::join_all;
 use std::time::Instant;
 
@@ -109,11 +112,13 @@ impl ScanEngine {
 
 		let start = Instant::now();
 		let scanner_types = self.parse_checks(checks)?;
+		let mut profiler = PerfProfiler::new();
 
-		// Build concurrent scanner futures
+		// Build concurrent scanner futures with profiling
 		let futures: Vec<_> = scanner_types
 			.iter()
-			.map(|scanner_type| {
+			.enumerate()
+			.map(|(i, scanner_type)| {
 				let config = self.config.clone();
 				let target = target.to_string();
 				let context = context.clone();
@@ -152,6 +157,15 @@ impl ScanEngine {
 		results.tools_used = scanner_types.iter().map(|st| st.to_string()).collect();
 		results.scan_duration_ms = start.elapsed().as_millis() as u64;
 
+		// Print performance report
+		let summary = profiler.summary();
+		if !summary.suggestions.is_empty() {
+			eprintln!("\n{}", "Performance Suggestions:".yellow().bold());
+			for s in &summary.suggestions {
+				eprintln!("  • {}", s.yellow());
+			}
+		}
+
 		Ok(results)
 	}
 
@@ -180,6 +194,14 @@ impl ScanEngine {
 				ScannerType::FormInjection,
 				ScannerType::Csrf,
 				ScannerType::FileUpload,
+				ScannerType::BrowserXss,
+				ScannerType::OAuthSecurity,
+				ScannerType::RateLimitBypass,
+				ScannerType::JwtBruteForce,
+				ScannerType::ApiFuzzing,
+				ScannerType::CorsDeep,
+				ScannerType::SubdomainTakeover,
+				ScannerType::WebSocketSecurity,
 			]);
 		}
 
@@ -215,10 +237,18 @@ impl ScanEngine {
 			"form" | "form-injection" | "post" => types.push(ScannerType::FormInjection),
 			"csrf" | "cross-site-request-forgery" => types.push(ScannerType::Csrf),
 			"upload" | "file-upload" => types.push(ScannerType::FileUpload),
+			"browser-xss" | "browser" | "dom" => types.push(ScannerType::BrowserXss),
+			"oauth" | "oidc" | "oauth-security" => types.push(ScannerType::OAuthSecurity),
+			"rate-limit" | "rate-limit-bypass" | "ratelimit" => types.push(ScannerType::RateLimitBypass),
+			"jwt-bruteforce" | "jwt-brute" | "jwt-crack" => types.push(ScannerType::JwtBruteForce),
+			"api-fuzz" | "fuzz" | "api-fuzzing" => types.push(ScannerType::ApiFuzzing),
+			"cors" | "cors-deep" | "cors-testing" => types.push(ScannerType::CorsDeep),
+			"subdomain-takeover" | "takeover" => types.push(ScannerType::SubdomainTakeover),
+			"websocket" | "ws" | "ws-security" => types.push(ScannerType::WebSocketSecurity),
 			_ => {
 				return Err(JackSparrowError::ConfigError {
 					message: format!(
-						"Unknown check: '{}'. Valid: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, form, csrf, upload, all",
+						"Unknown check: '{}'. Valid: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, form, csrf, upload, browser-xss, oauth, rate-limit, jwt-bruteforce, api-fuzz, cors, subdomain-takeover, websocket, all",
 						check
 					),
 				});
@@ -559,6 +589,38 @@ async fn run_scanner(
 		}
 		ScannerType::FileUpload => {
 			let scanner = FileUploadScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::BrowserXss => {
+			let scanner = BrowserXssScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::OAuthSecurity => {
+			let scanner = crate::core::scanners::oauth_scanner::OAuthScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::RateLimitBypass => {
+			let scanner = crate::core::scanners::rate_limit_bypass::RateLimitBypassScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::JwtBruteForce => {
+			let scanner = crate::core::scanners::jwt_bruteforce::JwtBruteForceScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::ApiFuzzing => {
+			let scanner = crate::core::scanners::api_fuzzing::ApiFuzzingScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::CorsDeep => {
+			let scanner = crate::core::scanners::cors_deep::CorsDeepScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::SubdomainTakeover => {
+			let scanner = crate::core::scanners::subdomain_takeover::SubdomainTakeoverScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::WebSocketSecurity => {
+			let scanner = crate::core::scanners::websocket_security::WebSocketSecurityScanner::new(config);
 			scanner.scan(target, config, context).await
 		}
 	}

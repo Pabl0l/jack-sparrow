@@ -28,6 +28,14 @@ pub enum ScannerType {
 	FormInjection,
 	Csrf,
 	FileUpload,
+	BrowserXss,
+	OAuthSecurity,
+	RateLimitBypass,
+	JwtBruteForce,
+	ApiFuzzing,
+	CorsDeep,
+	SubdomainTakeover,
+	WebSocketSecurity,
 }
 
 impl std::fmt::Display for ScannerType {
@@ -54,6 +62,14 @@ impl std::fmt::Display for ScannerType {
 		ScannerType::FormInjection => write!(f, "Form Injection"),
 		ScannerType::Csrf => write!(f, "CSRF"),
 		ScannerType::FileUpload => write!(f, "File Upload"),
+		ScannerType::BrowserXss => write!(f, "Browser XSS"),
+		ScannerType::OAuthSecurity => write!(f, "OAuth/OIDC Security"),
+		ScannerType::RateLimitBypass => write!(f, "Rate Limit Bypass"),
+		ScannerType::JwtBruteForce => write!(f, "JWT Brute-Force"),
+		ScannerType::ApiFuzzing => write!(f, "API Fuzzing"),
+		ScannerType::CorsDeep => write!(f, "CORS Deep Testing"),
+		ScannerType::SubdomainTakeover => write!(f, "Subdomain Takeover"),
+		ScannerType::WebSocketSecurity => write!(f, "WebSocket Security"),
 	}
 	}
 }
@@ -78,6 +94,8 @@ pub trait Scanner: Send + Sync {
 }
 
 pub mod api_security;
+pub mod browser_scanner;
+pub mod browser_xss;
 pub mod cloud_metadata;
 pub mod crawl_integration;
 pub mod dom_xss;
@@ -85,6 +103,8 @@ pub mod graphql;
 pub mod headers;
 pub mod idor;
 pub mod jwt;
+pub mod jwt_bruteforce;
+pub mod playwright_browser;
 pub mod secrets;
 pub mod sqli;
 pub mod sqli_native;
@@ -102,3 +122,9 @@ pub mod xxe;
 pub mod form_injection;
 pub mod csrf;
 pub mod file_upload;
+pub mod oauth_scanner;
+pub mod rate_limit_bypass;
+pub mod cors_deep;
+pub mod subdomain_takeover;
+pub mod websocket_security;
+pub mod api_fuzzing;

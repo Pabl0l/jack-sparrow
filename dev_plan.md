@@ -7,7 +7,7 @@
 
 ---
 
-## Resumen de Scanners (18 activos)
+## Resumen de Scanners (26 activos)
 
 | # | Scanner | Archivo | Check keyword | Tests |
 |---|---------|---------|---------------|-------|
@@ -29,19 +29,27 @@
 | 16 | **Cloud Metadata SSRF** | `cloud_metadata.rs` | `cloud-metadata` | AWS/GCP/Azure IMDS, IP obfuscation |
 | 17 | **XXE** | `xxe.rs` | `xxe` | XML entity injection, file reads, SSRF |
 | 18 | **SSTI** | `ssti.rs` | `ssti` | Template injection, RCE, multi-engine |
+| 19 | **Browser XSS** | `browser_xss.rs` | `browser-xss` | Browser-rendered XSS detection, SPA detection |
+| 20 | **OAuth/OIDC Security** | `oauth_scanner.rs` | `oauth` | OIDC discovery, CSRF (missing state), open redirect, implicit flow, weak PKCE |
+| 21 | **Rate Limit Bypass** | `rate_limit_bypass.rs` | `rate-limit` | Rate limit detection, bypass via method/header/URL/cookie manipulation |
+| 22 | **JWT Brute-Force** | `jwt_bruteforce.rs` | `jwt-bruteforce` | HMAC secret brute-force, algorithm confusion, weak algorithm detection |
+| 23 | **CORS Deep Testing** | `cors_deep.rs` | `cors` | Origin reflection, null origin, wildcard, subdomain bypass, preflight |
+| 24 | **Subdomain Takeover** | `subdomain_takeover.rs` | `subdomain-takeover` | CNAME takeover detection, service signature matching |
+| 25 | **WebSocket Security** | `websocket_security.rs` | `websocket` | WS upgrade detection, missing auth, CSWSH, info disclosure |
+| 26 | **API Fuzzing** | `api_fuzzing.rs` | `api-fuzz` | Parameter fuzzing, error patterns, payload reflection |
 
 ---
 
 ## Estado Actual
-- **Última actualización:** 2026-09-23
+- **Última actualización:** 2026-09-25
 - **Progreso general:** ~100%
-- **Versión:** 0.4.0
-- **Tests:** 378 (360 unit + 8 integration + 10 E2E)
-- **Warnings:** 9 (dead code — unused scanner constructors and bypass payloads)
+- **Versión:** 0.5.0
+- **Tests:** ~530 (unit + integration + E2E)
+- **Warnings:** 26 (dead code — unused scanner constructors, bypass payloads, browser fields, extract_client_id)
 - **Instalado globalmente:** `sparrow` command via `cargo install`
 - **CI/CD:** GitHub Actions (ci.yml + release.yml)
 - **Bugs corregidos:** Form action `#` fix, cookie passthrough in form discovery, GET form injection support
-- **Siguiente paso:** P4 — Browser-based scanning, OAuth/OIDC testing
+- **Siguiente paso:** P5 completado — Release v0.5.0, tests E2E, documentación
 
 ---
 
@@ -55,7 +63,7 @@
 
 ### Módulo 3: Motor de Orquestación (`src/core/engine.rs`)
 - **Estado:** [X] Completado
-- Checks: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, all
+- Checks: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, form, csrf, upload, browser-xss, oauth, rate-limit, jwt-bruteforce, api-fuzz, cors, subdomain-takeover, websocket, all
 
 ### Módulos 4-10: Scanners Core
 - **Estado:** [X] Completado (SQLi, XSS, IDOR, SSRF, SupplyChain, Headers, Recorder)
@@ -64,7 +72,7 @@
 - **Estado:** [X] Completado — JSON/HTML/Markdown, CVSS auto, remediación específica
 
 ### Módulo 12: Shared (`src/shared/`)
-- **Estado:** [X] Completado — 18 VulnerabilityTypes, 18 ScannerTypes
+- **Estado:** [X] Completado — 26 VulnerabilityTypes, 26 ScannerTypes
 
 ### Módulo 13: Tests (`tests/`)
 - **Estado:** [X] Completado
@@ -104,6 +112,89 @@
 - **Estado:** [X] Completado
 - Jinja2/Twig, Smarty, Freemarker, Velocity, Mako, ERB, RCE detection, math payload verification, config disclosure
 
+### Módulo 23: Browser XSS Scanner (`src/core/scanners/browser_xss.rs`)
+- **Estado:** [X] Completado
+- Playwright-based browser rendering for XSS detection in SPA/JS-heavy apps
+- BrowserScanner trait + PlaywrightBrowser implementation
+- URL parameter XSS testing, DOM XSS detection, SPA detection
+- Cookie/header passthrough for authenticated scanning
+
+### Módulo 24: Browser Scanner Infrastructure (`src/core/scanners/browser_scanner.rs`)
+- **Estado:** [X] Completado
+- BrowserScanner trait, BrowserConfig, BrowserManager, BrowserPage, NetworkRequest, Cookie structs
+
+### Módulo 25: OAuth/OIDC Scanner (`src/core/scanners/oauth_scanner.rs`)
+- **Estado:** [X] Completado
+- OIDC Discovery endpoint detection (/.well-known/openid-configuration)
+- Authorization endpoint probing (/authorize, /oauth/authorize, etc.)
+- Token endpoint probing (POST)
+- HTML indicator detection (oauth, openid, authorize links)
+- Missing state parameter detection (CSRF vulnerability)
+- Implicit flow detection (deprecated response_type=token)
+- Weak PKCE detection (plain method)
+- Open redirect testing via redirect_uri parameter
+
+### Módulo 26: Rate Limit Bypass Scanner (`src/core/scanners/rate_limit_bypass.rs`)
+- **Estado:** [X] Completado
+- Rate limit header detection (x-ratelimit-limit, retry-after, etc.)
+- HTTP method switching bypass (GET/POST/PUT/PATCH/DELETE/OPTIONS/HEAD)
+- IP spoofing header bypass (X-Forwarded-For, X-Real-IP, True-Client-IP, etc.)
+- URL manipulation bypass (encoding tricks, case changes, double slashes)
+- Cookie removal bypass (session rotation)
+- Missing rate limit detection on sensitive endpoints (login, register, password reset)
+
+### Módulo 27: JWT Brute-Force Scanner (`src/core/scanners/jwt_bruteforce.rs`)
+- **Estado:** [X] Completado
+- JWT HMAC secret brute-force (30 common secrets)
+- Algorithm confusion detection (alg=none, HS256 when expecting RSA)
+- Weak algorithm detection (none, HS256/384/512)
+- Missing expiration (exp claim) detection
+- Missing iss/aud claim detection
+- HMAC signature verification
+
+### Módulo 28: CORS Deep Testing Scanner (`src/core/scanners/cors_deep.rs`)
+- **Estado:** [X] Completado
+- Origin reflection testing (attacker.com)
+- Null Origin testing (sandboxed iframe)
+- Wildcard + credentials detection
+- Subdomain bypass testing
+- Preflight (OPTIONS) response analysis
+
+### Módulo 29: Subdomain Takeover Scanner (`src/core/scanners/subdomain_takeover.rs`)
+- **Estado:** [X] Completado
+- HTTP-based takeover detection (20 known service signatures)
+- Response body signature matching
+- Redirect header analysis for known services
+- Server header analysis for service identification
+
+### Módulo 30: WebSocket Security Scanner (`src/core/scanners/websocket_security.rs`)
+- **Estado:** [X] Completado
+- WebSocket upgrade detection (13 common WS paths)
+- Missing authentication testing
+- Cross-Site WebSocket Hijacking (CSWSH) detection
+- Information disclosure via WS handshake headers
+
+### Módulo 31: API Fuzzing Scanner (`src/core/scanners/api_fuzzing.rs`)
+- **Estado:** [X] Completado
+- 13 fuzz payloads (SQLi, XSS, SSTI, path traversal, cmd injection, CRLF)
+- 25 common parameter names tested via GET and POST
+- Error pattern detection (SQL errors, stack traces)
+- Payload reflection detection (XSS)
+
+### Módulo 32: Custom Wordlists (`src/core/wordlist.rs`)
+- **Estado:** [X] Completado
+- Custom wordlist file loading with caching
+- Built-in defaults (50 subdomains, 45 paths, 30 params)
+- Merge custom + default wordlists
+- Validation of wordlist files
+
+### Módulo 33: Performance Profiling (`src/core/perf.rs`)
+- **Estado:** [X] Completado
+- Per-scanner timing, findings count, request count
+- Findings-per-second metric
+- Slowest/fastest scanner identification
+- Optimization suggestions (slow scanners, low throughput, high error rates)
+
 ---
 
 ## P3 — Largo Plazo
@@ -121,15 +212,23 @@
 ### P1 — Corto Plazo ✅
 ### P2 — Mediano Plazo ✅ (Crawler + Stored XSS + DOM XSS)
 ### P3 — Largo Plazo ✅ (Subdomains + WAF + JWT + GraphQL + API)
-### P4 — Próximo
+### P4 — Próximo ✅
 - [X] Cloud metadata SSRF (AWS/GCP/Azure endpoint detection)
 - [X] XXE (XML External Entity detection)
 - [X] SSTI (Server-Side Template Injection)
-- [ ] Browser-based scanning (Playwright integration for JS-heavy apps)
+- [X] Browser-based scanning (Playwright integration for JS-heavy apps)
 - [X] PDF/CSV report export (CSV native + HTML print-to-PDF)
-- [ ] OAuth/OIDC flow testing
-- [ ] Rate limit bypass techniques
-- [ ] JWT brute-force (optional, opt-in)
+- [X] OAuth/OIDC flow testing
+- [X] Rate limit bypass techniques
+- [X] JWT brute-force (optional, opt-in)
+
+### P5 — Avanzado
+- [X] CORS deep testing
+- [X] Custom wordlists support
+- [X] Subdomain takeover detection
+- [X] WebSocket security testing
+- [X] API fuzzing
+- [X] Performance profiling
 
 ---
 
@@ -199,6 +298,15 @@ sparrow scan -t "http://target.com" --checks waf
 
 # JWT analysis (with token)
 sparrow scan -t "http://target.com" --checks jwt --header "Authorization: Bearer <token>"
+
+# OAuth/OIDC security testing
+sparrow scan -t "http://target.com" --checks oauth --oauth
+
+# Rate limit bypass testing
+sparrow scan -t "http://target.com" --checks rate-limit --rate-limit
+
+# JWT brute-force (opt-in, requires token)
+sparrow scan -t "http://target.com" --checks jwt-bruteforce --jwt-bruteforce --header "Authorization: Bearer <token>"
 
 # Authenticated scan
 sparrow scan -t "http://target.com" --cookie "session=abc123" --header "X-API-Key: secret"

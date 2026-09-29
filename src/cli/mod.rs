@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Jack Sparrow - Professional web pentesting tool
 #[derive(Parser, Debug)]
 #[command(name = "sparrow")]
-#[command(version = "0.4.0")]
+#[command(version = "0.5.0")]
 #[command(
     about = "🏴‍☠️ Professional web pentesting tool — find SQLi, XSS, IDOR, SSRF, and Supply Chain vulnerabilities"
 )]
@@ -84,6 +84,58 @@ pub enum Commands {
         /// Extra form field for login (repeatable, format: "name=value")
         #[arg(long)]
         login_field: Vec<String>,
+
+        /// Enable browser-based scanning (requires Playwright)
+        #[arg(long)]
+        browser: bool,
+
+        /// Run browser in visible mode (for debugging)
+        #[arg(long)]
+        visible: bool,
+
+        /// Enable OAuth/OIDC flow testing
+        #[arg(long)]
+        oauth: bool,
+
+        /// Enable rate limit bypass testing
+        #[arg(long)]
+        rate_limit: bool,
+
+        /// Enable JWT brute-force testing (opt-in, requires token)
+        #[arg(long)]
+        jwt_bruteforce: bool,
+
+        /// Enable CORS deep testing
+        #[arg(long)]
+        cors: bool,
+
+        /// Enable subdomain takeover detection
+        #[arg(long)]
+        takeover: bool,
+
+        /// Enable WebSocket security testing
+        #[arg(long)]
+        websocket: bool,
+
+        /// Enable API fuzzing
+        #[arg(long)]
+        api_fuzz: bool,
+
+        /// Custom subdomain wordlist path
+        #[arg(long)]
+        wordlist_subdomain: Option<PathBuf>,
+
+        /// Custom path wordlist path
+        #[arg(long)]
+        wordlist_path: Option<PathBuf>,
+
+        /// Custom parameter wordlist path
+        #[arg(long)]
+        wordlist_param: Option<PathBuf>,
+
+        /// Custom password wordlist path (for brute-force)
+        #[arg(long)]
+        wordlist_password: Option<PathBuf>,
     },
 
     /// Record a browser session for later scanning

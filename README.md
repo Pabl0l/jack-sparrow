@@ -318,9 +318,15 @@ make lab-up
 - [x] Phase P2: Crawler, Stored XSS, DOM XSS
 - [x] Phase P3: Subdomains, WAF, JWT, GraphQL, API Security
 - [x] Phase P4: Cloud Metadata, XXE, SSTI, CSV/PDF reports
-- [ ] Browser-based scanning (Playwright integration)
-- [ ] OAuth/OIDC flow testing
-- [ ] Rate limit bypass techniques
+- [x] Browser-based scanning (Playwright integration)
+- [x] OAuth/OIDC flow testing
+- [x] Rate limit bypass techniques
+- [x] JWT brute-force (opt-in)
+- [ ] CORS deep testing
+- [ ] Custom wordlists
+- [ ] Subdomain takeover detection
+- [ ] WebSocket security testing
+- [ ] API fuzzing
 
 ## Contributing
 
