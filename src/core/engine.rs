@@ -202,6 +202,10 @@ impl ScanEngine {
 				ScannerType::CorsDeep,
 				ScannerType::SubdomainTakeover,
 				ScannerType::WebSocketSecurity,
+				ScannerType::HttpSmuggling,
+				ScannerType::AuthBypass,
+				ScannerType::GraphqlAttack,
+				ScannerType::CachePoisoning,
 			]);
 		}
 
@@ -245,10 +249,14 @@ impl ScanEngine {
 			"cors" | "cors-deep" | "cors-testing" => types.push(ScannerType::CorsDeep),
 			"subdomain-takeover" | "takeover" => types.push(ScannerType::SubdomainTakeover),
 			"websocket" | "ws" | "ws-security" => types.push(ScannerType::WebSocketSecurity),
+			"smuggling" | "http-smuggling" | "request-smuggling" => types.push(ScannerType::HttpSmuggling),
+			"auth-bypass" | "authbypass" | "auth" => types.push(ScannerType::AuthBypass),
+			"graphql-attack" | "gql-attack" | "graphql-dos" => types.push(ScannerType::GraphqlAttack),
+			"cache-poisoning" | "cache" | "poisoning" => types.push(ScannerType::CachePoisoning),
 			_ => {
 				return Err(JackSparrowError::ConfigError {
 					message: format!(
-						"Unknown check: '{}'. Valid: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, form, csrf, upload, browser-xss, oauth, rate-limit, jwt-bruteforce, api-fuzz, cors, subdomain-takeover, websocket, all",
+						"Unknown check: '{}'. Valid: sqli, xss, xss-reflected, xss-stored, xss-dom, idor, ssrf, supply-chain, headers, tech, secrets, subdomains, waf, jwt, graphql, api, cloud-metadata, xxe, ssti, form, csrf, upload, browser-xss, oauth, rate-limit, jwt-bruteforce, api-fuzz, cors, subdomain-takeover, websocket, smuggling, auth-bypass, graphql-attack, cache-poisoning, all",
 						check
 					),
 				});
@@ -621,6 +629,22 @@ async fn run_scanner(
 		}
 		ScannerType::WebSocketSecurity => {
 			let scanner = crate::core::scanners::websocket_security::WebSocketSecurityScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::HttpSmuggling => {
+			let scanner = crate::core::scanners::http_smuggling::HttpSmugglingScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::AuthBypass => {
+			let scanner = crate::core::scanners::auth_bypass::AuthBypassScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::GraphqlAttack => {
+			let scanner = crate::core::scanners::graphql_attack::GraphqlAttackScanner::new(config);
+			scanner.scan(target, config, context).await
+		}
+		ScannerType::CachePoisoning => {
+			let scanner = crate::core::scanners::cache_poisoning::CachePoisoningScanner::new(config);
 			scanner.scan(target, config, context).await
 		}
 	}

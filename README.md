@@ -4,7 +4,7 @@
 [![Release](https://github.com/your-repo/jack-sparrow/actions/workflows/release.yml/badge.svg)](https://github.com/your-repo/jack-sparrow/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Professional web pentesting tool that orchestrates proven security tools to detect **18 types of vulnerabilities** from a single CLI.
+Professional web pentesting tool that orchestrates proven security tools to detect **30 types of vulnerabilities** from a single CLI.
 
 ## Vulnerability Scanners
 
@@ -28,10 +28,22 @@ Professional web pentesting tool that orchestrates proven security tools to dete
 | 16 | **Cloud Metadata SSRF** | AWS/GCP/Azure IMDS, IP obfuscation detection | CWE-918 |
 | 17 | **XXE** | XML entity injection, file reads, SSRF via XXE | CWE-611 |
 | 18 | **SSTI** | Template injection (Jinja2, Smarty, Freemarker, etc.) | CWE-1336 |
+| 19 | **Browser XSS** | Playwright browser-based XSS detection | CWE-79 |
+| 20 | **OAuth/OIDC** | OAuth flow testing, CSRF, open redirect | CWE-601 |
+| 21 | **Rate Limit Bypass** | Method switching, IP spoofing, URL manipulation | CWE-770 |
+| 22 | **JWT Brute-Force** | HMAC brute-force, algorithm confusion, missing claims | CWE-798 |
+| 23 | **CORS Deep** | Origin reflection, null origin, wildcard, subdomain bypass | CWE-942 |
+| 24 | **Subdomain Takeover** | 20 service signatures, CNAME analysis | CWE-829 |
+| 25 | **WebSocket Security** | Missing auth, CSWSH, origin validation | CWE-346 |
+| 26 | **API Fuzzing** | Parameter fuzzing, injection payloads, 25 params | CWE-20 |
+| 27 | **HTTP Smuggling** | CL.TE, TE.CL, TE.TE, H2 smuggling detection | CWE-444 |
+| 28 | **Auth Bypass** | Default creds, header injection, forced browsing | CWE-287 |
+| 29 | **GraphQL Attack** | Batch DoS, mutation abuse, schema extraction | CWE-400 |
+| 30 | **Cache Poisoning** | Unkeyed headers, deception, parameter cloaking | CWE-444 |
 
 ## Features
 
-- **18 scanners** — covering OWASP Top 10 and beyond
+- **30 scanners** — covering OWASP Top 10 and beyond
 - **Concurrent scanning** — all scanners run in parallel via `tokio::join!`
 - **Crawler engine** — async web crawler with Bloom filter dedup, robots.txt compliance, per-domain rate limiting
 - **Session recording** — record browser sessions with Playwright, export to HAR 1.2
@@ -157,7 +169,7 @@ Create a `jack-sparrow.toml` file:
 [general]
 max_concurrent = 4
 timeout_secs = 300
-user_agent = "JackSparrow/0.4.0"
+user_agent = "JackSparrow/0.6.0"
 verbose = false
 
 [scanners.sqli]
@@ -309,7 +321,7 @@ make lab-up
 | SSRF Detection Rate | >80% (Custom lab) |
 | False Positive Rate | <10% |
 | Concurrent Scanners | 10 (configurable) |
-| Unit Tests | 265+ |
+| Unit Tests | 570+ |
 
 ## Roadmap
 
@@ -322,11 +334,15 @@ make lab-up
 - [x] OAuth/OIDC flow testing
 - [x] Rate limit bypass techniques
 - [x] JWT brute-force (opt-in)
-- [ ] CORS deep testing
-- [ ] Custom wordlists
-- [ ] Subdomain takeover detection
-- [ ] WebSocket security testing
-- [ ] API fuzzing
+- [x] CORS deep testing
+- [x] Custom wordlists
+- [x] Subdomain takeover detection
+- [x] WebSocket security testing
+- [x] API fuzzing
+- [x] HTTP Request Smuggling detection
+- [x] Authentication Bypass testing
+- [x] GraphQL Attack testing
+- [x] Web Cache Poisoning detection
 
 ## Contributing
 

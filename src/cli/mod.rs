@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Jack Sparrow - Professional web pentesting tool
 #[derive(Parser, Debug)]
 #[command(name = "sparrow")]
-#[command(version = "0.5.0")]
+#[command(version = "0.6.0")]
 #[command(
     about = "🏴‍☠️ Professional web pentesting tool — find SQLi, XSS, IDOR, SSRF, and Supply Chain vulnerabilities"
 )]
@@ -120,6 +120,22 @@ pub enum Commands {
         /// Enable API fuzzing
         #[arg(long)]
         api_fuzz: bool,
+
+        /// Enable HTTP request smuggling detection
+        #[arg(long)]
+        smuggling: bool,
+
+        /// Enable authentication bypass testing
+        #[arg(long)]
+        auth_bypass: bool,
+
+        /// Enable GraphQL attack testing
+        #[arg(long)]
+        graphql_attack: bool,
+
+        /// Enable web cache poisoning testing
+        #[arg(long)]
+        cache_poisoning: bool,
 
         /// Custom subdomain wordlist path
         #[arg(long)]

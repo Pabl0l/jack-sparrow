@@ -48,6 +48,10 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 			wordlist_path,
 			wordlist_param,
 			wordlist_password,
+			smuggling,
+			auth_bypass,
+			graphql_attack,
+			cache_poisoning,
 		} => {
 			execute_scan(
 				&target,
@@ -74,6 +78,10 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 				takeover,
 				websocket,
 				api_fuzz,
+				smuggling,
+				auth_bypass,
+				graphql_attack,
+				cache_poisoning,
 				&config,
 			)
 			.await
@@ -86,7 +94,7 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
 		Commands::CheckTools => execute_check_tools(&config),
 		Commands::InitConfig { output } => execute_init_config(&output),
 		Commands::Version => {
-			println!("Jack Sparrow 0.5.0");
+			println!("Jack Sparrow 0.6.0");
 			Ok(())
 		}
 	}
@@ -134,6 +142,10 @@ async fn execute_scan(
 	takeover: bool,
 	websocket: bool,
 	api_fuzz: bool,
+	smuggling: bool,
+	auth_bypass: bool,
+	graphql_attack: bool,
+	cache_poisoning: bool,
 	config: &JackSparrowConfig,
 ) -> Result<(), JackSparrowError> {
 	println!(
@@ -166,6 +178,18 @@ async fn execute_scan(
 	}
 	if api_fuzz {
 		println!("API Fuzzing: enabled");
+	}
+	if smuggling {
+		println!("HTTP Request Smuggling: enabled");
+	}
+	if auth_bypass {
+		println!("Auth Bypass Testing: enabled");
+	}
+	if graphql_attack {
+		println!("GraphQL Attack Testing: enabled");
+	}
+	if cache_poisoning {
+		println!("Web Cache Poisoning: enabled");
 	}
 
 	// Build scan context — start with explicit cookies/headers
@@ -235,6 +259,10 @@ async fn execute_scan(
 			if takeover { extra.push("subdomain-takeover"); }
 			if websocket { extra.push("websocket"); }
 			if api_fuzz { extra.push("api-fuzz"); }
+			if smuggling { extra.push("smuggling"); }
+			if auth_bypass { extra.push("auth-bypass"); }
+			if graphql_attack { extra.push("graphql-attack"); }
+			if cache_poisoning { extra.push("cache-poisoning"); }
 			format!("{},{}", checks, extra.join(","))
 		}
 	} else {

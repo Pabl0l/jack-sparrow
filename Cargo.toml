@@ -1,6 +1,6 @@
 [package]
 name = "jack-sparrow"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Jack Sparrow Crew"]
 description = "Professional web pentesting tool — detect 26 vulnerability types including SQLi, XSS, SSRF, XXE, SSTI, OAuth, CORS, WebSocket, and more"

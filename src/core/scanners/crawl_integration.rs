@@ -417,6 +417,18 @@ impl CrawlTargetExtractor {
                 // WebSocket: all pages (test for WS upgrade)
                 targets.iter().collect()
             }
+            ScannerType::HttpSmuggling => {
+                targets.iter().collect()
+            }
+            ScannerType::AuthBypass => {
+                targets.iter().collect()
+            }
+            ScannerType::GraphqlAttack => {
+                targets.iter().collect()
+            }
+            ScannerType::CachePoisoning => {
+                targets.iter().collect()
+            }
         }
     }
 

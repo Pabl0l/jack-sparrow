@@ -36,6 +36,10 @@ pub enum ScannerType {
 	CorsDeep,
 	SubdomainTakeover,
 	WebSocketSecurity,
+	HttpSmuggling,
+	AuthBypass,
+	GraphqlAttack,
+	CachePoisoning,
 }
 
 impl std::fmt::Display for ScannerType {
@@ -70,6 +74,10 @@ impl std::fmt::Display for ScannerType {
 		ScannerType::CorsDeep => write!(f, "CORS Deep Testing"),
 		ScannerType::SubdomainTakeover => write!(f, "Subdomain Takeover"),
 		ScannerType::WebSocketSecurity => write!(f, "WebSocket Security"),
+		ScannerType::HttpSmuggling => write!(f, "HTTP Smuggling"),
+		ScannerType::AuthBypass => write!(f, "Auth Bypass"),
+		ScannerType::GraphqlAttack => write!(f, "GraphQL Attack"),
+		ScannerType::CachePoisoning => write!(f, "Cache Poisoning"),
 	}
 	}
 }
@@ -128,3 +136,7 @@ pub mod cors_deep;
 pub mod subdomain_takeover;
 pub mod websocket_security;
 pub mod api_fuzzing;
+pub mod graphql_attack;
+pub mod http_smuggling;
+pub mod auth_bypass;
+pub mod cache_poisoning;
