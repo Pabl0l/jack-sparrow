@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Jack Sparrow - Professional web pentesting tool
 #[derive(Parser, Debug)]
 #[command(name = "sparrow")]
-#[command(version = "0.6.0")]
+#[command(version)]
 #[command(
     about = "🏴‍☠️ Professional web pentesting tool — find SQLi, XSS, IDOR, SSRF, and Supply Chain vulnerabilities"
 )]
@@ -22,6 +22,8 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Debug)]
+// The `Scan` variant carries ~40 CLI flags; clap needs them as plain fields.
+#[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Scan a target for vulnerabilities
     Scan {

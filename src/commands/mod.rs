@@ -9,356 +9,391 @@ use std::path::PathBuf;
 
 /// Execute a CLI command
 pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
-	// Load config
-	let config = match cli.config {
-		Some(path) => JackSparrowConfig::from_file(&path)?,
-		None => JackSparrowConfig::default(),
-	};
+    // Load config
+    let config = match cli.config {
+        Some(path) => JackSparrowConfig::from_file(&path)?,
+        None => JackSparrowConfig::default(),
+    };
 
-	// Validate config
-	config.validate()?;
+    // Validate config
+    config.validate()?;
 
-	match cli.command {
-		Commands::Scan {
-			target,
-			checks,
-			session,
-			output,
-			format,
-			concurrency,
-			timeout,
-			cookie,
-			header,
-			login_url,
-			login_user,
-			login_pass,
-			login_field_user,
-			login_field_pass,
-			login_field,
-			browser,
-			visible,
-			oauth,
-			rate_limit,
-			jwt_bruteforce,
-			cors,
-			takeover,
-			websocket,
-			api_fuzz,
-			wordlist_subdomain,
-			wordlist_path,
-			wordlist_param,
-			wordlist_password,
-			smuggling,
-			auth_bypass,
-			graphql_attack,
-			cache_poisoning,
-		} => {
-			execute_scan(
-				&target,
-				&checks,
-				session.as_deref(),
-				output.as_deref(),
-				&format,
-				concurrency,
-				timeout,
-				cookie.as_deref(),
-				&header,
-				login_url.as_deref(),
-				login_user.as_deref(),
-				login_pass.as_deref(),
-				&login_field_user,
-				&login_field_pass,
-				&login_field,
-				browser,
-				visible,
-				oauth,
-				rate_limit,
-				jwt_bruteforce,
-				cors,
-				takeover,
-				websocket,
-				api_fuzz,
-				smuggling,
-				auth_bypass,
-				graphql_attack,
-				cache_poisoning,
-				&config,
-			)
-			.await
-		}
-		Commands::Record {
-			output,
-			browser,
-			headless,
-		} => execute_record(&output, &browser, headless).await,
-		Commands::CheckTools => execute_check_tools(&config),
-		Commands::InitConfig { output } => execute_init_config(&output),
-		Commands::Version => {
-			println!("Jack Sparrow 0.6.0");
-			Ok(())
-		}
-	}
+    match cli.command {
+        Commands::Scan {
+            target,
+            checks,
+            session,
+            output,
+            format,
+            concurrency,
+            timeout,
+            cookie,
+            header,
+            login_url,
+            login_user,
+            login_pass,
+            login_field_user,
+            login_field_pass,
+            login_field,
+            browser,
+            visible,
+            oauth,
+            rate_limit,
+            jwt_bruteforce,
+            cors,
+            takeover,
+            websocket,
+            api_fuzz,
+            wordlist_subdomain: _,
+            wordlist_path: _,
+            wordlist_param: _,
+            wordlist_password: _,
+            smuggling,
+            auth_bypass,
+            graphql_attack,
+            cache_poisoning,
+        } => {
+            execute_scan(
+                &target,
+                &checks,
+                session.as_deref(),
+                output.as_deref(),
+                &format,
+                concurrency,
+                timeout,
+                cookie.as_deref(),
+                &header,
+                login_url.as_deref(),
+                login_user.as_deref(),
+                login_pass.as_deref(),
+                &login_field_user,
+                &login_field_pass,
+                &login_field,
+                browser,
+                visible,
+                oauth,
+                rate_limit,
+                jwt_bruteforce,
+                cors,
+                takeover,
+                websocket,
+                api_fuzz,
+                smuggling,
+                auth_bypass,
+                graphql_attack,
+                cache_poisoning,
+                &config,
+            )
+            .await
+        }
+        Commands::Record {
+            output,
+            browser,
+            headless,
+        } => execute_record(&output, &browser, headless).await,
+        Commands::CheckTools => execute_check_tools(&config),
+        Commands::InitConfig { output } => execute_init_config(&output),
+        Commands::Version => {
+            println!("Jack Sparrow {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+    }
 }
 
 /// Parse header strings from CLI ("Key: Value") into tuples.
 fn parse_headers(raw: &[String]) -> Vec<(String, String)> {
-	raw.iter()
-		.filter_map(|h| {
-			let mut parts = h.splitn(2, ':');
-			let key = parts.next()?.trim().to_string();
-			let value = parts.next()?.trim().to_string();
-			if key.is_empty() {
-				None
-			} else {
-				Some((key, value))
-			}
-		})
-		.collect()
+    raw.iter()
+        .filter_map(|h| {
+            let mut parts = h.splitn(2, ':');
+            let key = parts.next()?.trim().to_string();
+            let value = parts.next()?.trim().to_string();
+            if key.is_empty() {
+                None
+            } else {
+                Some((key, value))
+            }
+        })
+        .collect()
 }
 
 /// Execute scan command
 async fn execute_scan(
-	target: &str,
-	checks: &str,
-	session: Option<&std::path::Path>,
-	output: Option<&std::path::Path>,
-	format: &str,
-	concurrency: usize,
-	timeout: u64,
-	cookie: Option<&str>,
-	raw_headers: &[String],
-	login_url: Option<&str>,
-	login_user: Option<&str>,
-	login_pass: Option<&str>,
-	login_field_user: &str,
-	login_field_pass: &str,
-	login_fields: &[String],
-	browser: bool,
-	visible: bool,
-	oauth: bool,
-	rate_limit: bool,
-	jwt_bruteforce: bool,
-	cors: bool,
-	takeover: bool,
-	websocket: bool,
-	api_fuzz: bool,
-	smuggling: bool,
-	auth_bypass: bool,
-	graphql_attack: bool,
-	cache_poisoning: bool,
-	config: &JackSparrowConfig,
+    target: &str,
+    checks: &str,
+    session: Option<&std::path::Path>,
+    output: Option<&std::path::Path>,
+    format: &str,
+    concurrency: usize,
+    timeout: u64,
+    cookie: Option<&str>,
+    raw_headers: &[String],
+    login_url: Option<&str>,
+    login_user: Option<&str>,
+    login_pass: Option<&str>,
+    login_field_user: &str,
+    login_field_pass: &str,
+    login_fields: &[String],
+    browser: bool,
+    visible: bool,
+    oauth: bool,
+    rate_limit: bool,
+    jwt_bruteforce: bool,
+    cors: bool,
+    takeover: bool,
+    websocket: bool,
+    api_fuzz: bool,
+    smuggling: bool,
+    auth_bypass: bool,
+    graphql_attack: bool,
+    cache_poisoning: bool,
+    config: &JackSparrowConfig,
 ) -> Result<(), JackSparrowError> {
-	println!(
-		"\n{}",
-		format!("Scanning: {}", target).bold().cyan()
-	);
-	println!("Checks: {}", checks);
-	println!("Concurrency: {}", concurrency);
-	println!("Timeout: {}s", timeout);
-	if browser {
-		println!("Browser: enabled{}", if visible { " (visible)" } else { "" });
-	}
-	if oauth {
-		println!("OAuth/OIDC: enabled");
-	}
-	if rate_limit {
-		println!("Rate Limit Bypass: enabled");
-	}
-	if jwt_bruteforce {
-		println!("JWT Brute-Force: enabled");
-	}
-	if cors {
-		println!("CORS Deep Testing: enabled");
-	}
-	if takeover {
-		println!("Subdomain Takeover: enabled");
-	}
-	if websocket {
-		println!("WebSocket Security: enabled");
-	}
-	if api_fuzz {
-		println!("API Fuzzing: enabled");
-	}
-	if smuggling {
-		println!("HTTP Request Smuggling: enabled");
-	}
-	if auth_bypass {
-		println!("Auth Bypass Testing: enabled");
-	}
-	if graphql_attack {
-		println!("GraphQL Attack Testing: enabled");
-	}
-	if cache_poisoning {
-		println!("Web Cache Poisoning: enabled");
-	}
+    println!("\n{}", format!("Scanning: {}", target).bold().cyan());
+    println!("Checks: {}", checks);
+    println!("Concurrency: {}", concurrency);
+    println!("Timeout: {}s", timeout);
+    if browser {
+        println!(
+            "Browser: enabled{}",
+            if visible { " (visible)" } else { "" }
+        );
+    }
+    if oauth {
+        println!("OAuth/OIDC: enabled");
+    }
+    if rate_limit {
+        println!("Rate Limit Bypass: enabled");
+    }
+    if jwt_bruteforce {
+        println!("JWT Brute-Force: enabled");
+    }
+    if cors {
+        println!("CORS Deep Testing: enabled");
+    }
+    if takeover {
+        println!("Subdomain Takeover: enabled");
+    }
+    if websocket {
+        println!("WebSocket Security: enabled");
+    }
+    if api_fuzz {
+        println!("API Fuzzing: enabled");
+    }
+    if smuggling {
+        println!("HTTP Request Smuggling: enabled");
+    }
+    if auth_bypass {
+        println!("Auth Bypass Testing: enabled");
+    }
+    if graphql_attack {
+        println!("GraphQL Attack Testing: enabled");
+    }
+    if cache_poisoning {
+        println!("Web Cache Poisoning: enabled");
+    }
 
-	// Build scan context — start with explicit cookies/headers
-	let mut context = ScanContext {
-		cookies: cookie.map(|s| s.to_string()),
-		headers: parse_headers(raw_headers),
-		session: session.map(|p| p.to_path_buf()),
-	};
+    // Build scan context — start with explicit cookies/headers
+    let mut context = ScanContext {
+        cookies: cookie.map(|s| s.to_string()),
+        headers: parse_headers(raw_headers),
+        session: session.map(|p| p.to_path_buf()),
+    };
 
-	// Perform form login if requested
-	if let (Some(url), Some(user), Some(pass)) = (login_url, login_user, login_pass) {
-		println!("Auth: performing form login to {}", url);
+    // Perform form login if requested
+    if let (Some(url), Some(user), Some(pass)) = (login_url, login_user, login_pass) {
+        println!("Auth: performing form login to {}", url);
 
-		// Parse extra fields
-		let extra_fields: Vec<(String, String)> = login_fields
-			.iter()
-			.filter_map(|f| {
-				let mut parts = f.splitn(2, '=');
-				let name = parts.next()?.to_string();
-				let value = parts.next()?.to_string();
-				Some((name, value))
-			})
-			.collect();
+        // Parse extra fields
+        let extra_fields: Vec<(String, String)> = login_fields
+            .iter()
+            .filter_map(|f| {
+                let mut parts = f.splitn(2, '=');
+                let name = parts.next()?.to_string();
+                let value = parts.next()?.to_string();
+                Some((name, value))
+            })
+            .collect();
 
-		let login_config = crate::shared::auth::AuthConfig::FormLogin {
-			login_url: url.to_string(),
-			username: user.to_string(),
-			password: pass.to_string(),
-			username_field: login_field_user.to_string(),
-			password_field: login_field_pass.to_string(),
-			extra_fields,
-			success_indicator: None,
-		};
+        let login_config = crate::shared::auth::AuthConfig::FormLogin {
+            login_url: url.to_string(),
+            username: user.to_string(),
+            password: pass.to_string(),
+            username_field: login_field_user.to_string(),
+            password_field: login_field_pass.to_string(),
+            extra_fields,
+            success_indicator: None,
+        };
 
-		let executor = crate::shared::auth::FormLoginExecutor::new();
-		match executor.login_to_context(&login_config).await {
-			Ok(login_ctx) => {
-				// Merge login cookies into context
-				if let Some(cookies) = login_ctx.cookies {
-					println!("Auth: login successful, cookies: {}", &cookies[..cookies.len().min(50)]);
-					context.cookies = Some(cookies);
-				}
-			}
-			Err(e) => {
-				eprintln!("\n{} {}", "Login failed:".red().bold(), e.red());
-				return Err(JackSparrowError::ToolExecutionFailed {
-					tool: "form-login".to_string(),
-					message: e,
-				});
-			}
-		}
-	} else if cookie.is_some() {
-		println!("Auth: cookies provided");
-	}
+        let executor = crate::shared::auth::FormLoginExecutor::new();
+        match executor.login_to_context(&login_config).await {
+            Ok(login_ctx) => {
+                // Merge login cookies into context
+                if let Some(cookies) = login_ctx.cookies {
+                    println!(
+                        "Auth: login successful, cookies: {}",
+                        &cookies[..cookies.len().min(50)]
+                    );
+                    context.cookies = Some(cookies);
+                }
+            }
+            Err(e) => {
+                eprintln!("\n{} {}", "Login failed:".red().bold(), e.red());
+                return Err(JackSparrowError::ToolExecutionFailed {
+                    tool: "form-login".to_string(),
+                    message: e,
+                });
+            }
+        }
+    } else if cookie.is_some() {
+        println!("Auth: cookies provided");
+    }
 
-	// If any feature flag is enabled, add corresponding checks
-	let effective_checks = if browser || oauth || rate_limit || jwt_bruteforce || cors || takeover || websocket || api_fuzz {
-		if checks == "all" {
-			checks.to_string()
-		} else {
-			let mut extra = Vec::new();
-			if browser { extra.push("browser-xss"); }
-			if oauth { extra.push("oauth"); }
-			if rate_limit { extra.push("rate-limit"); }
-			if jwt_bruteforce { extra.push("jwt-bruteforce"); }
-			if cors { extra.push("cors"); }
-			if takeover { extra.push("subdomain-takeover"); }
-			if websocket { extra.push("websocket"); }
-			if api_fuzz { extra.push("api-fuzz"); }
-			if smuggling { extra.push("smuggling"); }
-			if auth_bypass { extra.push("auth-bypass"); }
-			if graphql_attack { extra.push("graphql-attack"); }
-			if cache_poisoning { extra.push("cache-poisoning"); }
-			format!("{},{}", checks, extra.join(","))
-		}
-	} else {
-		checks.to_string()
-	};
+    // If any feature flag is enabled, add corresponding checks
+    let effective_checks = if browser
+        || oauth
+        || rate_limit
+        || jwt_bruteforce
+        || cors
+        || takeover
+        || websocket
+        || api_fuzz
+    {
+        if checks == "all" {
+            checks.to_string()
+        } else {
+            let mut extra = Vec::new();
+            if browser {
+                extra.push("browser-xss");
+            }
+            if oauth {
+                extra.push("oauth");
+            }
+            if rate_limit {
+                extra.push("rate-limit");
+            }
+            if jwt_bruteforce {
+                extra.push("jwt-bruteforce");
+            }
+            if cors {
+                extra.push("cors");
+            }
+            if takeover {
+                extra.push("subdomain-takeover");
+            }
+            if websocket {
+                extra.push("websocket");
+            }
+            if api_fuzz {
+                extra.push("api-fuzz");
+            }
+            if smuggling {
+                extra.push("smuggling");
+            }
+            if auth_bypass {
+                extra.push("auth-bypass");
+            }
+            if graphql_attack {
+                extra.push("graphql-attack");
+            }
+            if cache_poisoning {
+                extra.push("cache-poisoning");
+            }
+            format!("{},{}", checks, extra.join(","))
+        }
+    } else {
+        checks.to_string()
+    };
 
-	let mut engine = ScanEngine::new(config.clone());
+    let mut engine = ScanEngine::new(config.clone());
 
-	// Pre-scan tool verification
-	let warnings = engine.verify_tools();
-	if !warnings.is_empty() {
-		eprintln!("\n{}", "Tool Warnings:".yellow().bold());
-		for w in &warnings {
-			eprintln!("  {}", w.yellow());
-		}
-		eprintln!();
-	}
+    // Pre-scan tool verification
+    let warnings = engine.verify_tools();
+    if !warnings.is_empty() {
+        eprintln!("\n{}", "Tool Warnings:".yellow().bold());
+        for w in &warnings {
+            eprintln!("  {}", w.yellow());
+        }
+        eprintln!();
+    }
 
-	let results = engine
-		.scan(target, &effective_checks, &context, concurrency, timeout)
-		.await?;
+    let results = engine
+        .scan(target, &effective_checks, &context, concurrency, timeout)
+        .await?;
 
-	// Enrich findings with auto-CVSS and specific remediation
-	let mut results = results;
-	report::enrich_findings(&mut results);
+    // Enrich findings with auto-CVSS and specific remediation
+    let mut results = results;
+    report::enrich_findings(&mut results);
 
-	// Display findings in terminal
-	crate::output::display_findings(&results.findings);
-	crate::output::display_summary(&results);
+    // Display findings in terminal
+    crate::output::display_findings(&results.findings);
+    crate::output::display_summary(&results);
 
-	// Determine report format
-	let report_format = ReportFormat::from_str(format).unwrap_or(ReportFormat::Json);
+    // Determine report format
+    let report_format = ReportFormat::parse(format).unwrap_or(ReportFormat::Json);
 
-	// Determine output path
-	let default_name = format!("findings.{}", report_format.extension());
-	let output_path = match output {
-		Some(path) => path.to_path_buf(),
-		None => PathBuf::from(&default_name),
-	};
+    // Determine output path
+    let default_name = format!("findings.{}", report_format.extension());
+    let output_path = match output {
+        Some(path) => path.to_path_buf(),
+        None => PathBuf::from(&default_name),
+    };
 
-	// Generate and write report
-	report::write_report(&results, report_format, &output_path).map_err(|e| {
-		JackSparrowError::Io(std::io::Error::other(format!("Failed to write report: {}", e)))
-	})?;
+    // Generate and write report
+    report::write_report(&results, report_format, &output_path).map_err(|e| {
+        JackSparrowError::Io(std::io::Error::other(format!(
+            "Failed to write report: {}",
+            e
+        )))
+    })?;
 
-	println!(
-		"\n{} {}",
-		"Report saved to:".green().bold(),
-		output_path.display()
-	);
+    println!(
+        "\n{} {}",
+        "Report saved to:".green().bold(),
+        output_path.display()
+    );
 
-	Ok(())
+    Ok(())
 }
 
 /// Execute record command
 async fn execute_record(
-	output: &std::path::Path,
-	browser: &str,
-	headless: bool,
+    output: &std::path::Path,
+    browser: &str,
+    headless: bool,
 ) -> Result<(), JackSparrowError> {
-	crate::core::recorder::browser::record_session(output, browser, headless).await
+    crate::core::recorder::browser::record_session(output, browser, headless).await
 }
 
 /// Execute check-tools command
 fn execute_check_tools(config: &JackSparrowConfig) -> Result<(), JackSparrowError> {
-	println!("\n{}", "Checking installed tools...".bold().cyan());
+    println!("\n{}", "Checking installed tools...".bold().cyan());
 
-	let missing = crate::shared::tool_checker::verify_all_tools(&config.tools)?;
+    let missing = crate::shared::tool_checker::verify_all_tools(&config.tools)?;
 
-	if missing.is_empty() {
-		println!("{}", "All tools are installed.".green().bold());
-	} else {
-		eprintln!("\n{}", "Missing tools:".red().bold());
-		for tool in &missing {
-			eprintln!("  {} {}", "-".red(), tool.red());
-		}
-		eprintln!(
-			"\n{}",
-			"Install missing tools: make install-deps".yellow()
-		);
-		return Err(JackSparrowError::ToolNotFound {
-			tool: missing.join(", "),
-		});
-	}
+    if missing.is_empty() {
+        println!("{}", "All tools are installed.".green().bold());
+    } else {
+        eprintln!("\n{}", "Missing tools:".red().bold());
+        for tool in &missing {
+            eprintln!("  {} {}", "-".red(), tool.red());
+        }
+        eprintln!("\n{}", "Install missing tools: make install-deps".yellow());
+        return Err(JackSparrowError::ToolNotFound {
+            tool: missing.join(", "),
+        });
+    }
 
-	Ok(())
+    Ok(())
 }
 
 /// Execute init-config command
 fn execute_init_config(output: &std::path::Path) -> Result<(), JackSparrowError> {
-	let config = JackSparrowConfig::default();
-	config.to_file(&output.to_path_buf())?;
-	println!(
-		"\n{} {}",
-		"Default configuration saved to:".green().bold(),
-		output.display()
-	);
-	Ok(())
+    let config = JackSparrowConfig::default();
+    config.to_file(&output.to_path_buf())?;
+    println!(
+        "\n{} {}",
+        "Default configuration saved to:".green().bold(),
+        output.display()
+    );
+    Ok(())
 }

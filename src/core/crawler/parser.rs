@@ -48,7 +48,7 @@ pub enum Method {
 }
 
 impl Method {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_uppercase().as_str() {
             "POST" => Self::Post,
             "PUT" => Self::Put,
@@ -344,7 +344,7 @@ impl HtmlParser {
             let method = form_el
                 .value()
                 .attr("method")
-                .map(Method::from_str)
+                .map(Method::parse)
                 .unwrap_or(Method::Get);
 
             let enctype = form_el.value().attr("enctype").map(String::from);
@@ -355,10 +355,7 @@ impl HtmlParser {
             let mut inputs = Vec::new();
             for input_el in form_el.select(&input_selector) {
                 let input_value = input_el.value();
-                let input_type = input_value
-                    .attr("type")
-                    .unwrap_or("text")
-                    .to_lowercase();
+                let input_type = input_value.attr("type").unwrap_or("text").to_lowercase();
 
                 if input_type == "submit" || input_type == "button" || input_type == "image" {
                     continue;
@@ -375,9 +372,7 @@ impl HtmlParser {
                     value: input_value.attr("value").map(String::from),
                     required: input_value.attr("required").is_some(),
                     id: input_value.attr("id").map(String::from),
-                    maxlength: input_value
-                        .attr("maxlength")
-                        .and_then(|v| v.parse().ok()),
+                    maxlength: input_value.attr("maxlength").and_then(|v| v.parse().ok()),
                 });
             }
 
@@ -423,9 +418,9 @@ impl HtmlParser {
         let mut scripts = Vec::new();
         let mut in_script = false;
         let mut current_script = String::new();
-        let mut line_num = 1;
 
-        for line in html.lines() {
+        for (idx, line) in html.lines().enumerate() {
+            let line_num = idx + 1;
             let lower = line.to_lowercase();
 
             if !in_script {
@@ -446,8 +441,6 @@ impl HtmlParser {
                 current_script.push_str(line);
                 current_script.push('\n');
             }
-
-            line_num += 1;
         }
 
         scripts
@@ -499,7 +492,7 @@ impl HtmlParser {
             .select(&selector)
             .map(|el| {
                 let v = el.value();
-                let is_hidden = v.attr("style").map(|s| s.to_lowercase()).map_or(false, |s| {
+                let is_hidden = v.attr("style").map(|s| s.to_lowercase()).is_some_and(|s| {
                     s.contains("display:none")
                         || s.contains("display: none")
                         || s.contains("visibility:hidden")
@@ -510,9 +503,7 @@ impl HtmlParser {
                     || v.attr("height") == Some("0");
 
                 DiscoveredIframe {
-                    src: v
-                        .attr("src")
-                        .and_then(|s| self.base_url.join(s).ok()),
+                    src: v.attr("src").and_then(|s| self.base_url.join(s).ok()),
                     name: v.attr("name").map(String::from),
                     id: v.attr("id").map(String::from),
                     sandbox: v.attr("sandbox").map(String::from),
@@ -616,14 +607,47 @@ impl HtmlParser {
     fn extract_event_handlers(&self, html: &str) -> Vec<EventHandler> {
         let mut handlers = Vec::new();
         let event_attrs = [
-            "onclick", "ondblclick", "onmousedown", "onmouseup", "onmouseover",
-            "onmousemove", "onmouseout", "onkeydown", "onkeypress", "onkeyup",
-            "onfocus", "onblur", "onchange", "onsubmit", "onreset", "onselect",
-            "onload", "onerror", "onabort", "onresize", "onscroll", "onunload",
-            "onbeforeunload", "onhashchange", "onpopstate", "onstorage",
-            "oninput", "oninvalid", "ontouchstart", "ontouchend", "ontouchmove",
-            "ondrag", "ondragstart", "ondragend", "ondragover", "ondragenter",
-            "ondragleave", "ondrop", "oncopy", "oncut", "onpaste",
+            "onclick",
+            "ondblclick",
+            "onmousedown",
+            "onmouseup",
+            "onmouseover",
+            "onmousemove",
+            "onmouseout",
+            "onkeydown",
+            "onkeypress",
+            "onkeyup",
+            "onfocus",
+            "onblur",
+            "onchange",
+            "onsubmit",
+            "onreset",
+            "onselect",
+            "onload",
+            "onerror",
+            "onabort",
+            "onresize",
+            "onscroll",
+            "onunload",
+            "onbeforeunload",
+            "onhashchange",
+            "onpopstate",
+            "onstorage",
+            "oninput",
+            "oninvalid",
+            "ontouchstart",
+            "ontouchend",
+            "ontouchmove",
+            "ondrag",
+            "ondragstart",
+            "ondragend",
+            "ondragover",
+            "ondragenter",
+            "ondragleave",
+            "ondrop",
+            "oncopy",
+            "oncut",
+            "onpaste",
         ];
 
         for event in &event_attrs {
@@ -661,10 +685,10 @@ impl HtmlParser {
 
                 // Extract handler value
                 let after_eq = &html[abs_idx + pattern.len()..];
-                let handler = if after_eq.starts_with('"') {
-                    after_eq[1..].find('"').map(|end| after_eq[1..1 + end].to_string())
-                } else if after_eq.starts_with('\'') {
-                    after_eq[1..].find('\'').map(|end| after_eq[1..1 + end].to_string())
+                let handler = if let Some(rest) = after_eq.strip_prefix('"') {
+                    rest.find('"').map(|end| rest[..end].to_string())
+                } else if let Some(rest) = after_eq.strip_prefix('\'') {
+                    rest.find('\'').map(|end| rest[..end].to_string())
                 } else {
                     after_eq.split_whitespace().next().map(String::from)
                 };
@@ -751,10 +775,7 @@ impl HtmlParser {
             }
         }
         if let Some(ref id) = form_id {
-            if auth_keywords
-                .iter()
-                .any(|k| id.to_lowercase().contains(k))
-            {
+            if auth_keywords.iter().any(|k| id.to_lowercase().contains(k)) {
                 return true;
             }
         }
@@ -1094,11 +1115,11 @@ mod tests {
 
     #[test]
     fn method_from_str() {
-        assert_eq!(Method::from_str("GET"), Method::Get);
-        assert_eq!(Method::from_str("post"), Method::Post);
-        assert_eq!(Method::from_str("PUT"), Method::Put);
-        assert_eq!(Method::from_str("DELETE"), Method::Delete);
-        assert_eq!(Method::from_str("unknown"), Method::Get);
+        assert_eq!(Method::parse("GET"), Method::Get);
+        assert_eq!(Method::parse("post"), Method::Post);
+        assert_eq!(Method::parse("PUT"), Method::Put);
+        assert_eq!(Method::parse("DELETE"), Method::Delete);
+        assert_eq!(Method::parse("unknown"), Method::Get);
     }
 
     #[test]
@@ -1129,16 +1150,8 @@ mod tests {
     fn detect_auth_form_by_name() {
         let parser = HtmlParser::new(base_url());
         let inputs = vec![];
-        assert!(parser.detect_auth_form(
-            &inputs,
-            &Some("login-form".to_string()),
-            &None
-        ));
-        assert!(parser.detect_auth_form(
-            &inputs,
-            &None,
-            &Some("signin".to_string())
-        ));
+        assert!(parser.detect_auth_form(&inputs, &Some("login-form".to_string()), &None));
+        assert!(parser.detect_auth_form(&inputs, &None, &Some("signin".to_string())));
     }
 
     #[test]
@@ -1152,10 +1165,6 @@ mod tests {
             id: None,
             maxlength: None,
         }];
-        assert!(!parser.detect_auth_form(
-            &inputs,
-            &Some("search".to_string()),
-            &None
-        ));
+        assert!(!parser.detect_auth_form(&inputs, &Some("search".to_string()), &None));
     }
 }

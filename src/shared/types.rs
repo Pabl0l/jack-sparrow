@@ -10,82 +10,82 @@ pub type FindingId = Uuid;
 /// Vulnerability types supported by Jack Sparrow
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum VulnerabilityType {
-	/// SQL Injection (error-based, blind, time-based)
-	SqlInjection,
-	/// Cross-Site Scripting (reflected, stored, DOM-based)
-	XssReflected,
-	XssStored,
-	XssDom,
-	/// Insecure Direct Object Reference
-	Idor,
-	/// Server-Side Request Forgery
-	Ssrf,
-	/// Software Supply Chain vulnerabilities
-	SupplyChainDependency,
-	SupplyChainMalicious,
-	/// Missing or weak security header
-	SecurityHeader,
-	/// Technology fingerprint (informational)
-	TechFingerprint,
-	/// Exposed secret or credential
-	SecretExposed,
-	/// Subdomain discovered
-	SubdomainFound,
-	/// WAF/CDN detected
-	WafDetected,
-	/// JWT security issue
-	JwtIssue,
-	/// GraphQL introspection/schema issue
-	GraphQLIntrospection,
-	/// API security issue (CORS, methods, errors, rate limiting)
-	ApiSecurity,
-	/// XML External Entity injection
-	Xxe,
-	/// Server-Side Template Injection
-	Ssti,
-	/// Form injection (SQLi/XSS/SSTI via POST body)
-	FormInjection,
-	/// Cross-Site Request Forgery
-	Csrf,
-	/// Unrestricted file upload
-	FileUpload,
-	/// Browser-based XSS detection (requires JavaScript rendering)
-	BrowserXss,
-	/// OAuth/OIDC security misconfiguration
-	OAuthSecurity,
-	/// Rate limit bypass or missing rate limiting
-	RateLimitBypass,
+    /// SQL Injection (error-based, blind, time-based)
+    SqlInjection,
+    /// Cross-Site Scripting (reflected, stored, DOM-based)
+    XssReflected,
+    XssStored,
+    XssDom,
+    /// Insecure Direct Object Reference
+    Idor,
+    /// Server-Side Request Forgery
+    Ssrf,
+    /// Software Supply Chain vulnerabilities
+    SupplyChainDependency,
+    SupplyChainMalicious,
+    /// Missing or weak security header
+    SecurityHeader,
+    /// Technology fingerprint (informational)
+    TechFingerprint,
+    /// Exposed secret or credential
+    SecretExposed,
+    /// Subdomain discovered
+    SubdomainFound,
+    /// WAF/CDN detected
+    WafDetected,
+    /// JWT security issue
+    JwtIssue,
+    /// GraphQL introspection/schema issue
+    GraphQLIntrospection,
+    /// API security issue (CORS, methods, errors, rate limiting)
+    ApiSecurity,
+    /// XML External Entity injection
+    Xxe,
+    /// Server-Side Template Injection
+    Ssti,
+    /// Form injection (SQLi/XSS/SSTI via POST body)
+    FormInjection,
+    /// Cross-Site Request Forgery
+    Csrf,
+    /// Unrestricted file upload
+    FileUpload,
+    /// Browser-based XSS detection (requires JavaScript rendering)
+    BrowserXss,
+    /// OAuth/OIDC security misconfiguration
+    OAuthSecurity,
+    /// Rate limit bypass or missing rate limiting
+    RateLimitBypass,
 }
 
 impl std::fmt::Display for VulnerabilityType {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			VulnerabilityType::SqlInjection => write!(f, "SQL Injection"),
-			VulnerabilityType::XssReflected => write!(f, "Reflected XSS"),
-			VulnerabilityType::XssStored => write!(f, "Stored XSS"),
-			VulnerabilityType::XssDom => write!(f, "DOM XSS"),
-			VulnerabilityType::Idor => write!(f, "IDOR"),
-			VulnerabilityType::Ssrf => write!(f, "SSRF"),
-			VulnerabilityType::SupplyChainDependency => write!(f, "Dependency Vulnerability"),
-			VulnerabilityType::SupplyChainMalicious => write!(f, "Malicious Package"),
-			VulnerabilityType::SecurityHeader => write!(f, "Security Header"),
-			VulnerabilityType::TechFingerprint => write!(f, "Technology Fingerprint"),
-			VulnerabilityType::SecretExposed => write!(f, "Exposed Secret"),
-			VulnerabilityType::SubdomainFound => write!(f, "Subdomain Discovered"),
-			VulnerabilityType::WafDetected => write!(f, "WAF Detected"),
-			VulnerabilityType::JwtIssue => write!(f, "JWT Issue"),
-			VulnerabilityType::GraphQLIntrospection => write!(f, "GraphQL Introspection"),
-			VulnerabilityType::ApiSecurity => write!(f, "API Security"),
-			VulnerabilityType::Xxe => write!(f, "XML External Entity"),
-			VulnerabilityType::Ssti => write!(f, "Server-Side Template Injection"),
-			VulnerabilityType::FormInjection => write!(f, "Form Injection"),
-			VulnerabilityType::Csrf => write!(f, "Cross-Site Request Forgery"),
-			VulnerabilityType::FileUpload => write!(f, "Unrestricted File Upload"),
-			VulnerabilityType::BrowserXss => write!(f, "Browser XSS"),
-		VulnerabilityType::OAuthSecurity => write!(f, "OAuth/OIDC Security"),
-		VulnerabilityType::RateLimitBypass => write!(f, "Rate Limit Bypass"),
-		}
-	}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VulnerabilityType::SqlInjection => write!(f, "SQL Injection"),
+            VulnerabilityType::XssReflected => write!(f, "Reflected XSS"),
+            VulnerabilityType::XssStored => write!(f, "Stored XSS"),
+            VulnerabilityType::XssDom => write!(f, "DOM XSS"),
+            VulnerabilityType::Idor => write!(f, "IDOR"),
+            VulnerabilityType::Ssrf => write!(f, "SSRF"),
+            VulnerabilityType::SupplyChainDependency => write!(f, "Dependency Vulnerability"),
+            VulnerabilityType::SupplyChainMalicious => write!(f, "Malicious Package"),
+            VulnerabilityType::SecurityHeader => write!(f, "Security Header"),
+            VulnerabilityType::TechFingerprint => write!(f, "Technology Fingerprint"),
+            VulnerabilityType::SecretExposed => write!(f, "Exposed Secret"),
+            VulnerabilityType::SubdomainFound => write!(f, "Subdomain Discovered"),
+            VulnerabilityType::WafDetected => write!(f, "WAF Detected"),
+            VulnerabilityType::JwtIssue => write!(f, "JWT Issue"),
+            VulnerabilityType::GraphQLIntrospection => write!(f, "GraphQL Introspection"),
+            VulnerabilityType::ApiSecurity => write!(f, "API Security"),
+            VulnerabilityType::Xxe => write!(f, "XML External Entity"),
+            VulnerabilityType::Ssti => write!(f, "Server-Side Template Injection"),
+            VulnerabilityType::FormInjection => write!(f, "Form Injection"),
+            VulnerabilityType::Csrf => write!(f, "Cross-Site Request Forgery"),
+            VulnerabilityType::FileUpload => write!(f, "Unrestricted File Upload"),
+            VulnerabilityType::BrowserXss => write!(f, "Browser XSS"),
+            VulnerabilityType::OAuthSecurity => write!(f, "OAuth/OIDC Security"),
+            VulnerabilityType::RateLimitBypass => write!(f, "Rate Limit Bypass"),
+        }
+    }
 }
 
 /// Severity levels following CVSS-like classification

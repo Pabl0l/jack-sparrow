@@ -35,10 +35,12 @@ impl XxeScanner {
         );
         builder = builder.default_headers(headers);
 
-        builder.build().map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "xxe".to_string(),
-            message: e.to_string(),
-        })
+        builder
+            .build()
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "xxe".to_string(),
+                message: e.to_string(),
+            })
     }
 
     /// XXE payloads targeting different file reads and SSRF
@@ -64,26 +66,28 @@ impl XxeScanner {
     }
 
     /// Detect if target accepts XML content types
-    async fn detect_xml_endpoints(
-        &self,
-        target: &str,
-        client: &Client,
-    ) -> Vec<String> {
+    async fn detect_xml_endpoints(&self, target: &str, client: &Client) -> Vec<String> {
         let mut xml_endpoints = Vec::new();
 
         // Common XML-accepting paths
         let paths = [
-            "/", "/api", "/api/xml", "/xml", "/soap", "/ws", "/webhook",
-            "/upload", "/import", "/feed", "/rss", "/sitemap.xml",
+            "/",
+            "/api",
+            "/api/xml",
+            "/xml",
+            "/soap",
+            "/ws",
+            "/webhook",
+            "/upload",
+            "/import",
+            "/feed",
+            "/rss",
+            "/sitemap.xml",
         ];
 
         for path in &paths {
             let url = format!("{}{}", target.trim_end_matches('/'), path);
-            if let Ok(resp) = client
-                .request(reqwest::Method::OPTIONS, &url)
-                .send()
-                .await
-            {
+            if let Ok(resp) = client.request(reqwest::Method::OPTIONS, &url).send().await {
                 let content_type = resp
                     .headers()
                     .get("content-type")
@@ -97,7 +101,11 @@ impl XxeScanner {
                     .unwrap_or("")
                     .to_string();
 
-                if content_type.contains("xml") || allow.contains("POST") || path.contains("xml") || path.contains("soap") {
+                if content_type.contains("xml")
+                    || allow.contains("POST")
+                    || path.contains("xml")
+                    || path.contains("soap")
+                {
                     xml_endpoints.push(url);
                 }
             }
@@ -112,11 +120,7 @@ impl XxeScanner {
     }
 
     /// Test a single endpoint for XXE
-    async fn test_endpoint_xxe(
-        &self,
-        endpoint: &str,
-        client: &Client,
-    ) -> Vec<Finding> {
+    async fn test_endpoint_xxe(&self, endpoint: &str, client: &Client) -> Vec<Finding> {
         let mut findings = Vec::new();
         let payloads = Self::xxe_payloads();
 
@@ -135,13 +139,13 @@ impl XxeScanner {
                     if let Ok(body) = response.text().await {
                         // Check for XXE indicators in response
                         let indicators = [
-                            "root:x:0:0",           // /etc/passwd
-                            "[boot loader]",         // Windows win.ini
-                            "DOCUMENT_ROOT",         // PHP environ
-                            "AMI_ID",                // AWS metadata
-                            "instance-id",           // AWS metadata
-                            "hostname",              // /etc/hostname
-                            "Linux version",         // /proc/version
+                            "root:x:0:0",    // /etc/passwd
+                            "[boot loader]", // Windows win.ini
+                            "DOCUMENT_ROOT", // PHP environ
+                            "AMI_ID",        // AWS metadata
+                            "instance-id",   // AWS metadata
+                            "hostname",      // /etc/hostname
+                            "Linux version", // /proc/version
                         ];
 
                         for indicator in &indicators {
@@ -254,9 +258,13 @@ mod tests {
         let payloads = XxeScanner::xxe_payloads();
         assert!(payloads.len() >= 8, "Should have at least 8 XXE payloads");
         // Check that we have Linux, Windows, and SSRF payloads
-        let has_linux = payloads.iter().any(|(_, desc, _)| desc.contains("Linux") || desc.contains("/etc/"));
+        let has_linux = payloads
+            .iter()
+            .any(|(_, desc, _)| desc.contains("Linux") || desc.contains("/etc/"));
         let has_windows = payloads.iter().any(|(_, desc, _)| desc.contains("Windows"));
-        let has_ssrf = payloads.iter().any(|(_, desc, _)| desc.contains("SSRF") || desc.contains("metadata"));
+        let has_ssrf = payloads
+            .iter()
+            .any(|(_, desc, _)| desc.contains("SSRF") || desc.contains("metadata"));
         assert!(has_linux, "Should have Linux file read payloads");
         assert!(has_windows, "Should have Windows file read payloads");
         assert!(has_ssrf, "Should have SSRF via XXE payloads");
@@ -283,7 +291,9 @@ mod tests {
     async fn test_endpoint_xxe_returns_empty_for_refused() {
         let scanner = XxeScanner::new(&make_config());
         let client = scanner.build_client(&make_context()).unwrap();
-        let findings = scanner.test_endpoint_xxe("http://127.0.0.1:19999", &client).await;
+        let findings = scanner
+            .test_endpoint_xxe("http://127.0.0.1:19999", &client)
+            .await;
         assert!(findings.is_empty());
     }
 }

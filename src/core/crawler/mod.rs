@@ -20,16 +20,14 @@ pub mod rate_limiter;
 pub mod robots;
 pub mod sitemap;
 
-pub use config::{CrawlerConfig, CrawlScope};
+pub use config::{CrawlScope, CrawlerConfig};
 pub use engine::{CrawlError, CrawlEvent, CrawlResults, CrawlStats, CrawledPage, CrawlerEngine};
-pub use fetcher::{FetchedPage, FetchError, Fetcher, RetryPolicy};
-pub use frontier::{
-    DedupStrategy, FrontierHandle, UrlFrontier,
-};
+pub use fetcher::{FetchError, FetchedPage, Fetcher, RetryPolicy};
+pub use frontier::{DedupStrategy, FrontierHandle, UrlFrontier};
 pub use parser::{
-    BaseTag, DiscoveredEmbed, DiscoveredForm, DiscoveredIframe, DiscoveredLink,
-    DiscoveredLinkTag, DiscoveredMedia, DiscoveredScript, EmbedKind, EventHandler, FormInput,
-    HtmlParser, InlineScript, LinkContext, MediaKind, MetaRefresh, Method, ParsedPage,
+    BaseTag, DiscoveredEmbed, DiscoveredForm, DiscoveredIframe, DiscoveredLink, DiscoveredLinkTag,
+    DiscoveredMedia, DiscoveredScript, EmbedKind, EventHandler, FormInput, HtmlParser,
+    InlineScript, LinkContext, MediaKind, MetaRefresh, Method, ParsedPage,
 };
 pub use rate_limiter::{DomainRateLimiter, RateLimiterHandle};
 pub use robots::{RobotsCache, RobotsError, RobotsFile, RobotsRule};

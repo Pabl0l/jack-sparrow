@@ -2,14 +2,9 @@ use clap::Parser;
 use colored::*;
 use std::process;
 
-mod cli;
-mod commands;
-mod core;
-mod output;
-mod shared;
-
-use cli::Cli;
-use shared::error::JackSparrowError;
+use jack_sparrow::cli::Cli;
+use jack_sparrow::commands;
+use jack_sparrow::shared::error::JackSparrowError;
 
 fn print_banner() {
     println!(
@@ -26,13 +21,10 @@ fn print_banner() {
  │                                                                 │
  ╰──[ ADVANCED PENTEST TOOL ]──────────────────────[ BY PABL0L ]───╯
 "#
-    .green()
-    .bold()
+        .green()
+        .bold()
     );
-    println!(
-        "{}",
-        "    >_ Ready to hack.".bright_green().bold()
-    );
+    println!("{}", "    >_ Ready to hack.".bright_green().bold());
     println!();
 }
 

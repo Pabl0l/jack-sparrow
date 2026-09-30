@@ -160,9 +160,7 @@ impl Fetcher {
             }
         }
 
-        Err(last_error.unwrap_or(FetchError::Timeout {
-            timeout_ms: 0,
-        }))
+        Err(last_error.unwrap_or(FetchError::Timeout { timeout_ms: 0 }))
     }
 
     /// Single fetch attempt without retry.
@@ -178,9 +176,7 @@ impl Fetcher {
                     });
                 }
                 if e.is_redirect() {
-                    return Err(FetchError::TooManyRedirects {
-                        max: 10,
-                    });
+                    return Err(FetchError::TooManyRedirects { max: 10 });
                 }
                 return Err(FetchError::Request(e));
             }
@@ -224,9 +220,7 @@ impl Fetcher {
             .to_string();
 
         if !is_html_content(&content_type) {
-            return Err(FetchError::UnsupportedContentType {
-                content_type,
-            });
+            return Err(FetchError::UnsupportedContentType { content_type });
         }
 
         // Read body
@@ -275,9 +269,8 @@ impl Fetcher {
 /// Check if a Content-Type string indicates HTML content.
 fn is_html_content(content_type: &str) -> bool {
     let ct = content_type.to_lowercase();
-    ct.contains("text/html")
-        || ct.contains("application/xhtml")
-        || ct.contains("text/plain") // Some servers return text/plain for HTML
+    ct.contains("text/html") || ct.contains("application/xhtml") || ct.contains("text/plain")
+    // Some servers return text/plain for HTML
 }
 
 #[cfg(test)]

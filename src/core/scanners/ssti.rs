@@ -35,10 +35,12 @@ impl SstiScanner {
         );
         builder = builder.default_headers(headers);
 
-        builder.build().map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "ssti".to_string(),
-            message: e.to_string(),
-        })
+        builder
+            .build()
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "ssti".to_string(),
+                message: e.to_string(),
+            })
     }
 
     /// SSTI payloads grouped by template engine
@@ -48,26 +50,76 @@ impl SstiScanner {
         vec![
             // Jinja2 / Twig (Python)
             ("{{7*7}}", "49", "Jinja2/Twig (Python)", Severity::Critical),
-            ("{{7*'7'}}", "7777777", "Jinja2/Twig string concat", Severity::Critical),
-            ("{{config.items()}}", "Config", "Jinja2 config disclosure", Severity::Critical),
-            ("{{self.__class__.__mro__[1].__subclasses__()}}", "class", "Jinja2 RCE via MRO", Severity::Critical),
+            (
+                "{{7*'7'}}",
+                "7777777",
+                "Jinja2/Twig string concat",
+                Severity::Critical,
+            ),
+            (
+                "{{config.items()}}",
+                "Config",
+                "Jinja2 config disclosure",
+                Severity::Critical,
+            ),
+            (
+                "{{self.__class__.__mro__[1].__subclasses__()}}",
+                "class",
+                "Jinja2 RCE via MRO",
+                Severity::Critical,
+            ),
             // Smarty (PHP)
             ("{7*7}", "49", "Smarty (PHP)", Severity::Critical),
-            ("{$smarty.version}", "Smarty", "Smarty version disclosure", Severity::High),
+            (
+                "{$smarty.version}",
+                "Smarty",
+                "Smarty version disclosure",
+                Severity::High,
+            ),
             // Freemarker (Java)
-            ("<#assign ex='freemarker.template.utility.Execute'?new()>${ex('id')}", "uid=", "Freemarker RCE", Severity::Critical),
+            (
+                "<#assign ex='freemarker.template.utility.Execute'?new()>${ex('id')}",
+                "uid=",
+                "Freemarker RCE",
+                Severity::Critical,
+            ),
             ("${7*7}", "49", "Freemarker expression", Severity::Critical),
             // Velocity (Java)
-            ("#set($x=7*7)$x", "49", "Apache Velocity", Severity::Critical),
-            ("#evaluate('$x=7*7')$x", "49", "Velocity evaluate", Severity::Critical),
+            (
+                "#set($x=7*7)$x",
+                "49",
+                "Apache Velocity",
+                Severity::Critical,
+            ),
+            (
+                "#evaluate('$x=7*7')$x",
+                "49",
+                "Velocity evaluate",
+                Severity::Critical,
+            ),
             // Mako (Python)
             ("<% x=7*7 %>${x}", "49", "Mako (Python)", Severity::Critical),
             // ERB (Ruby)
             ("<%= 7*7 %>", "49", "ERB (Ruby)", Severity::Critical),
             // Generic math test (universal)
-            ("${7*7}", "49", "Generic template expression", Severity::Critical),
-            ("#{7*7}", "49", "Generic hash expression", Severity::Critical),
-            ("<%= 7*7 %>", "49", "Generic ERB expression", Severity::Critical),
+            (
+                "${7*7}",
+                "49",
+                "Generic template expression",
+                Severity::Critical,
+            ),
+            (
+                "#{7*7}",
+                "49",
+                "Generic hash expression",
+                Severity::Critical,
+            ),
+            (
+                "<%= 7*7 %>",
+                "49",
+                "Generic ERB expression",
+                Severity::Critical,
+            ),
         ]
     }
 
@@ -77,11 +129,9 @@ impl SstiScanner {
         if expected == "49" {
             // Check if the response contains exactly "49" as a standalone value
             // (not just as part of a larger number like "149" or "490")
-            let body_no_html = response_body
-                .replace(">", "> ")
-                .replace("<", " <");
+            let body_no_html = response_body.replace(">", "> ").replace("<", " <");
             let words: Vec<&str> = body_no_html.split_whitespace().collect();
-            return words.iter().any(|w| *w == "49");
+            return words.contains(&"49");
         }
         // For string concat like "7777777"
         if expected == "7777777" {
@@ -91,168 +141,155 @@ impl SstiScanner {
         response_body.contains(expected)
     }
 
-	/// Test a URL parameter for SSTI via GET query string
-	async fn test_param_ssti(
-		&self,
-		url: &str,
-		param_name: &str,
-		client: &Client,
-	) -> Vec<Finding> {
-		let mut findings = Vec::new();
-		let payloads = Self::ssti_payloads();
+    /// Test a URL parameter for SSTI via GET query string
+    async fn test_param_ssti(&self, url: &str, param_name: &str, client: &Client) -> Vec<Finding> {
+        let mut findings = Vec::new();
+        let payloads = Self::ssti_payloads();
 
-		// First, get the baseline response (no payload)
-		let baseline_url = format!("{}?{}=sparrow_baseline_test", url, param_name);
-		let baseline_body = match client.get(&baseline_url).send().await {
-			Ok(resp) => resp.text().await.unwrap_or_default(),
-			Err(_) => String::new(),
-		};
+        // First, get the baseline response (no payload)
+        let baseline_url = format!("{}?{}=sparrow_baseline_test", url, param_name);
+        let baseline_body = match client.get(&baseline_url).send().await {
+            Ok(resp) => resp.text().await.unwrap_or_default(),
+            Err(_) => String::new(),
+        };
 
-		for (payload, expected, engine, severity) in &payloads {
-			let test_url = format!("{}?{}={}", url, param_name, payload);
+        for (payload, expected, engine, severity) in &payloads {
+            let test_url = format!("{}?{}={}", url, param_name, payload);
 
-			match client.get(&test_url).send().await {
-				Ok(resp) => {
-					if resp.status().is_success() {
-						if let Ok(body) = resp.text().await {
-							if Self::check_ssti_execution(&body, expected) {
-								// Verify it's not in the baseline (avoid false positives)
-								if !Self::check_ssti_execution(&baseline_body, expected) {
-									let finding = Finding {
-										id: uuid::Uuid::new_v4(),
-										vulnerability_type: VulnerabilityType::Ssti,
-										severity: severity.clone(),
-										confidence: Confidence::Confirmed,
-										title: format!("SSTI vulnerability via {} engine", engine),
-										description: format!(
-											"Server-Side Template Injection confirmed at {} via parameter '{}' (GET). \
-											 Payload '{}' produced expected output '{}', indicating {} template engine. \
-											 This allows remote code execution on the server.",
-											url, param_name, payload, expected, engine
-										),
-										url: url.to_string(),
-										parameter: Some(param_name.to_string()),
-										evidence: Evidence {
-											request: Some(format!("GET {} HTTP/1.1", test_url)),
-											response: Some(body.chars().take(500).collect()),
-											payload: Some(payload.to_string()),
-											pattern: Some(expected.to_string()),
-											context: Some(format!("Template engine: {}", engine)),
-										},
-										remediation: format!(
-											"1. Never render user input in templates\n\
-											 2. Use sandboxed template environments\n\
-											 3. Implement auto-escaping in templates\n\
-											 4. Validate and sanitize all user input\n\
-											 5. Use whitelisting for allowed template syntax\n\
-											 6. Run application with minimal OS privileges"
-										),
-										references: vec![
-											"https://cwe.mitre.org/data/definitions/1336.html".to_string(),
-											"https://owasp.org/www-community-vulnerabilities/Server_Side_Template_Injection".to_string(),
-											"https://portswigger.net/research/server-side-template-injection".to_string(),
-										],
-										timestamp: chrono::Utc::now(),
-										cvss_score: Some(9.8),
-										cwe_id: Some("CWE-1336".to_string()),
-										tool_source: "ssti-scanner".to_string(),
-									};
-									findings.push(finding);
-									return findings; // One finding per param is enough
-								}
-							}
-						}
-					}
-				}
-				Err(_) => {}
-			}
-		}
+            if let Ok(resp) = client.get(&test_url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.text().await {
+                        if Self::check_ssti_execution(&body, expected) {
+                            // Verify it's not in the baseline (avoid false positives)
+                            if !Self::check_ssti_execution(&baseline_body, expected) {
+                                let finding = Finding {
+            										id: uuid::Uuid::new_v4(),
+            										vulnerability_type: VulnerabilityType::Ssti,
+            										severity: severity.clone(),
+            										confidence: Confidence::Confirmed,
+            										title: format!("SSTI vulnerability via {} engine", engine),
+            										description: format!(
+            											"Server-Side Template Injection confirmed at {} via parameter '{}' (GET). \
+            											 Payload '{}' produced expected output '{}', indicating {} template engine. \
+            											 This allows remote code execution on the server.",
+            											url, param_name, payload, expected, engine
+            										),
+            										url: url.to_string(),
+            										parameter: Some(param_name.to_string()),
+            										evidence: Evidence {
+            											request: Some(format!("GET {} HTTP/1.1", test_url)),
+            											response: Some(body.chars().take(500).collect()),
+            											payload: Some(payload.to_string()),
+            											pattern: Some(expected.to_string()),
+            											context: Some(format!("Template engine: {}", engine)),
+            										},
+            										remediation: "1. Never render user input in templates\n\
+            											 2. Use sandboxed template environments\n\
+            											 3. Implement auto-escaping in templates\n\
+            											 4. Validate and sanitize all user input\n\
+            											 5. Use whitelisting for allowed template syntax\n\
+            											 6. Run application with minimal OS privileges".to_string(),
+            										references: vec![
+            											"https://cwe.mitre.org/data/definitions/1336.html".to_string(),
+            											"https://owasp.org/www-community-vulnerabilities/Server_Side_Template_Injection".to_string(),
+            											"https://portswigger.net/research/server-side-template-injection".to_string(),
+            										],
+            										timestamp: chrono::Utc::now(),
+            										cvss_score: Some(9.8),
+            										cwe_id: Some("CWE-1336".to_string()),
+            										tool_source: "ssti-scanner".to_string(),
+            									};
+                                findings.push(finding);
+                                return findings; // One finding per param is enough
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-		findings
-	}
+        findings
+    }
 
-	/// Test a URL parameter for SSTI via POST form body
-	async fn test_param_ssti_post(
-		&self,
-		url: &str,
-		param_name: &str,
-		client: &Client,
-	) -> Vec<Finding> {
-		let mut findings = Vec::new();
-		let payloads = Self::ssti_payloads();
+    /// Test a URL parameter for SSTI via POST form body
+    async fn test_param_ssti_post(
+        &self,
+        url: &str,
+        param_name: &str,
+        client: &Client,
+    ) -> Vec<Finding> {
+        let mut findings = Vec::new();
+        let payloads = Self::ssti_payloads();
 
-		// Baseline POST (no real payload)
-		let baseline_body = match client.post(url)
-			.form(&[(param_name, "sparrow_baseline_test")])
-			.send()
-			.await
-		{
-			Ok(resp) => resp.text().await.unwrap_or_default(),
-			Err(_) => String::new(),
-		};
+        // Baseline POST (no real payload)
+        let baseline_body = match client
+            .post(url)
+            .form(&[(param_name, "sparrow_baseline_test")])
+            .send()
+            .await
+        {
+            Ok(resp) => resp.text().await.unwrap_or_default(),
+            Err(_) => String::new(),
+        };
 
-		for (payload, expected, engine, severity) in &payloads {
-			match client.post(url)
-				.form(&[(param_name, *payload)])
-				.send()
-				.await
-			{
-				Ok(resp) => {
-					if resp.status().is_success() {
-						if let Ok(body) = resp.text().await {
-							if Self::check_ssti_execution(&body, expected)
-								&& !Self::check_ssti_execution(&baseline_body, expected)
-							{
-								let finding = Finding {
-									id: uuid::Uuid::new_v4(),
-									vulnerability_type: VulnerabilityType::Ssti,
-									severity: severity.clone(),
-									confidence: Confidence::Confirmed,
-									title: format!("SSTI vulnerability via {} engine", engine),
-									description: format!(
-										"Server-Side Template Injection confirmed at {} via parameter '{}' (POST). \
-										 Payload '{}' produced expected output '{}', indicating {} template engine.",
-										url, param_name, payload, expected, engine
-									),
-									url: url.to_string(),
-									parameter: Some(param_name.to_string()),
-									evidence: Evidence {
-										request: Some(format!("POST {} HTTP/1.1\n{}={}", url, param_name, payload)),
-										response: Some(body.chars().take(500).collect()),
-										payload: Some(payload.to_string()),
-										pattern: Some(expected.to_string()),
-										context: Some(format!("Template engine: {} (POST)", engine)),
-									},
-									remediation: format!(
-										"1. Never render user input in templates\n\
-										 2. Use sandboxed template environments\n\
-										 3. Implement auto-escaping in templates\n\
-										 4. Validate and sanitize all user input\n\
-										 5. Use whitelisting for allowed template syntax\n\
-										 6. Run application with minimal OS privileges"
-									),
-									references: vec![
-										"https://cwe.mitre.org/data/definitions/1336.html".to_string(),
-										"https://owasp.org/www-community-vulnerabilities/Server_Side_Template_Injection".to_string(),
-										"https://portswigger.net/research/server-side-template-injection".to_string(),
-									],
-									timestamp: chrono::Utc::now(),
-									cvss_score: Some(9.8),
-									cwe_id: Some("CWE-1336".to_string()),
-									tool_source: "ssti-scanner".to_string(),
-								};
-								findings.push(finding);
-								return findings;
-							}
-						}
-					}
-				}
-				Err(_) => {}
-			}
-		}
+        for (payload, expected, engine, severity) in &payloads {
+            if let Ok(resp) = client
+                .post(url)
+                .form(&[(param_name, *payload)])
+                .send()
+                .await
+            {
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.text().await {
+                        if Self::check_ssti_execution(&body, expected)
+                            && !Self::check_ssti_execution(&baseline_body, expected)
+                        {
+                            let finding = Finding {
+            									id: uuid::Uuid::new_v4(),
+            									vulnerability_type: VulnerabilityType::Ssti,
+            									severity: severity.clone(),
+            									confidence: Confidence::Confirmed,
+            									title: format!("SSTI vulnerability via {} engine", engine),
+            									description: format!(
+            										"Server-Side Template Injection confirmed at {} via parameter '{}' (POST). \
+            										 Payload '{}' produced expected output '{}', indicating {} template engine.",
+            										url, param_name, payload, expected, engine
+            									),
+            									url: url.to_string(),
+            									parameter: Some(param_name.to_string()),
+            									evidence: Evidence {
+            										request: Some(format!("POST {} HTTP/1.1\n{}={}", url, param_name, payload)),
+            										response: Some(body.chars().take(500).collect()),
+            										payload: Some(payload.to_string()),
+            										pattern: Some(expected.to_string()),
+            										context: Some(format!("Template engine: {} (POST)", engine)),
+            									},
+            									remediation: "1. Never render user input in templates\n\
+            										 2. Use sandboxed template environments\n\
+            										 3. Implement auto-escaping in templates\n\
+            										 4. Validate and sanitize all user input\n\
+            										 5. Use whitelisting for allowed template syntax\n\
+            										 6. Run application with minimal OS privileges".to_string(),
+            									references: vec![
+            										"https://cwe.mitre.org/data/definitions/1336.html".to_string(),
+            										"https://owasp.org/www-community-vulnerabilities/Server_Side_Template_Injection".to_string(),
+            										"https://portswigger.net/research/server-side-template-injection".to_string(),
+            									],
+            									timestamp: chrono::Utc::now(),
+            									cvss_score: Some(9.8),
+            									cwe_id: Some("CWE-1336".to_string()),
+            									tool_source: "ssti-scanner".to_string(),
+            								};
+                            findings.push(finding);
+                            return findings;
+                        }
+                    }
+                }
+            }
+        }
 
-		findings
-	}
+        findings
+    }
 
     /// Extract parameters from URL for testing
     fn extract_params(url: &str) -> Vec<String> {
@@ -266,9 +303,8 @@ impl SstiScanner {
     /// Common parameter names to test when no params are in URL
     fn common_params() -> Vec<&'static str> {
         vec![
-            "name", "q", "search", "query", "input", "text", "page",
-            "template", "file", "include", "render", "view", "url",
-            "id", "user", "data", "content", "body", "message",
+            "name", "q", "search", "query", "input", "text", "page", "template", "file", "include",
+            "render", "view", "url", "id", "user", "data", "content", "body", "message",
         ]
     }
 }
@@ -279,39 +315,39 @@ impl Scanner for SstiScanner {
         ScannerType::Ssti
     }
 
-	async fn scan(
-		&self,
-		target: &str,
-		_config: &JackSparrowConfig,
-		context: &ScanContext,
-	) -> Result<Vec<Finding>, JackSparrowError> {
-		let client = self.build_client(context)?;
+    async fn scan(
+        &self,
+        target: &str,
+        _config: &JackSparrowConfig,
+        context: &ScanContext,
+    ) -> Result<Vec<Finding>, JackSparrowError> {
+        let client = self.build_client(context)?;
 
-		let mut all_findings = Vec::new();
+        let mut all_findings = Vec::new();
 
-		// Get parameters from URL
-		let params = Self::extract_params(target);
+        // Get parameters from URL
+        let params = Self::extract_params(target);
 
-		if !params.is_empty() {
-			// Test each URL parameter via GET
-			for param in &params {
-				let findings = self.test_param_ssti(target, param, &client).await;
-				all_findings.extend(findings);
-			}
-		} else {
-			// No params in URL — test a focused set of common parameter names via GET only
-			// (POST form testing is handled by FormInjectionScanner)
-			let focused_params = vec![
-				"template", "name", "q", "search", "file", "include", "render", "view", "url",
-			];
-			for param in focused_params {
-				let findings = self.test_param_ssti(target, param, &client).await;
-				all_findings.extend(findings);
-			}
-		}
+        if !params.is_empty() {
+            // Test each URL parameter via GET
+            for param in &params {
+                let findings = self.test_param_ssti(target, param, &client).await;
+                all_findings.extend(findings);
+            }
+        } else {
+            // No params in URL — test a focused set of common parameter names via GET only
+            // (POST form testing is handled by FormInjectionScanner)
+            let focused_params = vec![
+                "template", "name", "q", "search", "file", "include", "render", "view", "url",
+            ];
+            for param in focused_params {
+                let findings = self.test_param_ssti(target, param, &client).await;
+                all_findings.extend(findings);
+            }
+        }
 
-		Ok(all_findings)
-	}
+        Ok(all_findings)
+    }
 }
 
 #[cfg(test)]
@@ -339,13 +375,32 @@ mod tests {
     #[test]
     fn ssti_payloads_cover_multiple_engines() {
         let payloads = SstiScanner::ssti_payloads();
-        assert!(payloads.len() >= 10, "Should have at least 10 SSTI payloads");
+        assert!(
+            payloads.len() >= 10,
+            "Should have at least 10 SSTI payloads"
+        );
         // Verify we cover major template engines
         let engines: Vec<&str> = payloads.iter().map(|(_, _, engine, _)| *engine).collect();
-        assert!(engines.iter().any(|e| e.contains("Jinja2")), "Should include Jinja2");
-        assert!(engines.iter().any(|e| e.contains("Freemarker") || e.contains("Velocity")), "Should include Java engines");
-        assert!(engines.iter().any(|e| e.contains("Smarty") || e.contains("Mako")), "Should include PHP/Python engines");
-        assert!(engines.iter().any(|e| e.contains("ERB")), "Should include Ruby ERB");
+        assert!(
+            engines.iter().any(|e| e.contains("Jinja2")),
+            "Should include Jinja2"
+        );
+        assert!(
+            engines
+                .iter()
+                .any(|e| e.contains("Freemarker") || e.contains("Velocity")),
+            "Should include Java engines"
+        );
+        assert!(
+            engines
+                .iter()
+                .any(|e| e.contains("Smarty") || e.contains("Mako")),
+            "Should include PHP/Python engines"
+        );
+        assert!(
+            engines.iter().any(|e| e.contains("ERB")),
+            "Should include Ruby ERB"
+        );
     }
 
     #[test]
@@ -360,7 +415,7 @@ mod tests {
         // "149" contains "49" but isn't exactly "49"
         let transformed = body.replace(">", "> ").replace("<", " <");
         let words: Vec<&str> = transformed.split_whitespace().collect();
-        assert!(!words.iter().any(|w| *w == "49"));
+        assert!(!words.contains(&"49"));
     }
 
     #[test]

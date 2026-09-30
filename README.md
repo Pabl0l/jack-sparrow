@@ -169,7 +169,7 @@ Create a `jack-sparrow.toml` file:
 [general]
 max_concurrent = 4
 timeout_secs = 300
-user_agent = "JackSparrow/0.6.0"
+user_agent = "JackSparrow/0.6.1"
 verbose = false
 
 [scanners.sqli]

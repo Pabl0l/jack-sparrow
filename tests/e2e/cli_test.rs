@@ -5,12 +5,13 @@ use tempfile::TempDir;
 
 #[test]
 fn test_version_command() {
+    let expected = format!("Jack Sparrow {}", env!("CARGO_PKG_VERSION"));
     Command::cargo_bin("sparrow")
         .unwrap()
         .arg("version")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Jack Sparrow 0.4.0"));
+        .stdout(predicate::str::contains(expected));
 }
 
 #[test]
@@ -27,7 +28,7 @@ fn test_help_command() {
 fn test_scan_help() {
     Command::cargo_bin("sparrow")
         .unwrap()
-        .args(&["scan", "--help"])
+        .args(["scan", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--target"))
@@ -41,7 +42,7 @@ fn test_init_config_creates_file() {
 
     Command::cargo_bin("sparrow")
         .unwrap()
-        .args(&["init-config", "--output"])
+        .args(["init-config", "--output"])
         .arg(&config_path)
         .assert()
         .success();
@@ -80,7 +81,7 @@ fn test_scan_missing_target() {
 fn test_invalid_check_name() {
     Command::cargo_bin("sparrow")
         .unwrap()
-        .args(&[
+        .args([
             "scan",
             "--target",
             "http://example.com",
@@ -95,7 +96,7 @@ fn test_invalid_check_name() {
 fn test_record_help() {
     Command::cargo_bin("sparrow")
         .unwrap()
-        .args(&["record", "--help"])
+        .args(["record", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--output"))
@@ -124,7 +125,7 @@ fn test_scan_output_json_format() {
     // This will fail because target is unreachable, but we test the CLI parsing
     let result = Command::cargo_bin("sparrow")
         .unwrap()
-        .args(&[
+        .args([
             "scan",
             "--target",
             "http://localhost:99999",

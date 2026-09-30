@@ -42,10 +42,7 @@ impl TaintAnalyzer {
                             sink: sink.clone(),
                             path: Vec::new(),
                             confidence,
-                            description: format!(
-                                "Potential flow: {} → {}",
-                                source.name, sink.name
-                            ),
+                            description: format!("Potential flow: {} → {}", source.name, sink.name),
                         });
                     }
                 }
@@ -82,10 +79,7 @@ impl TaintAnalyzer {
                         sink: sink.clone(),
                         path: Vec::new(),
                         confidence,
-                        description: format!(
-                            "Direct flow: {} → {}",
-                            source.name, sink.name
-                        ),
+                        description: format!("Direct flow: {} → {}", source.name, sink.name),
                     });
                     continue;
                 }
@@ -112,8 +106,10 @@ impl TaintAnalyzer {
             // Check if both source and sink appear on lines near each other
             if line.contains(&source.full_match) {
                 // Check surrounding lines (within 3 lines)
-                for j in i.saturating_sub(3)..=(i + 3).min(source_lines.len() - 1) {
-                    if source_lines[j].contains(&sink.full_match) {
+                let start = i.saturating_sub(3);
+                let end = (i + 3).min(source_lines.len() - 1);
+                for nearby in source_lines.iter().take(end + 1).skip(start) {
+                    if nearby.contains(&sink.full_match) {
                         return true;
                     }
                 }
@@ -128,9 +124,7 @@ impl TaintAnalyzer {
 
         // Pattern: var x = source; or let x = source; or const x = source;
         // Or: x = source;
-        if let Ok(re) = regex::Regex::new(
-            r#"(?:(?:var|let|const)\s+)?(\w+)\s*=\s*([^;]+);"#
-        ) {
+        if let Ok(re) = regex::Regex::new(r#"(?:(?:var|let|const)\s+)?(\w+)\s*=\s*([^;]+);"#) {
             for cap in re.captures_iter(code) {
                 if let (Some(var), Some(val)) = (cap.get(1), cap.get(2)) {
                     assignments.push((var.as_str().to_string(), val.as_str().trim().to_string()));
@@ -233,8 +227,8 @@ impl Default for TaintAnalyzer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::js_analyzer::JsAnalyzer;
+    use super::*;
 
     #[test]
     fn detect_direct_flow() {

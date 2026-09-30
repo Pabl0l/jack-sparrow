@@ -184,8 +184,7 @@ impl AdaptiveRateLimiter {
                 state.consecutive_429 += 1;
                 state.current_rps =
                     (state.current_rps * self.config.backoff_multiplier).max(self.config.min_rps);
-                state.cooldown_until =
-                    Some(now + Duration::from_secs(self.config.cooldown_secs));
+                state.cooldown_until = Some(now + Duration::from_secs(self.config.cooldown_secs));
 
                 tracing::warn!(
                     domain = %domain,
@@ -196,8 +195,7 @@ impl AdaptiveRateLimiter {
             }
             Some(status) if status >= 500 => {
                 // Server error — slight backoff
-                state.current_rps =
-                    (state.current_rps * 0.8).max(self.config.min_rps);
+                state.current_rps = (state.current_rps * 0.8).max(self.config.min_rps);
                 tracing::warn!(
                     domain = %domain,
                     status = status,
@@ -229,8 +227,7 @@ impl AdaptiveRateLimiter {
 
         // Burst limit check
         if state.request_count >= self.config.burst_limit {
-            state.cooldown_until =
-                Some(now + Duration::from_secs(self.config.cooldown_secs / 2));
+            state.cooldown_until = Some(now + Duration::from_secs(self.config.cooldown_secs / 2));
             state.request_count = 0;
             tracing::info!(
                 domain = %domain,

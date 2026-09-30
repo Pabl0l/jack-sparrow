@@ -1,6 +1,6 @@
 use super::har::{Har, HarEntryBuilder};
 use crate::shared::error::JackSparrowError;
-use playwright_rs::{Playwright, Route, FulfillOptions, LaunchOptions};
+use playwright_rs::{FulfillOptions, LaunchOptions, Playwright, Route};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -14,9 +14,9 @@ pub async fn record_session(
 ) -> Result<(), JackSparrowError> {
     println!("Initializing Playwright...");
 
-    let playwright = Playwright::launch().await.map_err(|e| {
-        JackSparrowError::Playwright(format!("Failed to launch Playwright: {}", e))
-    })?;
+    let playwright = Playwright::launch()
+        .await
+        .map_err(|e| JackSparrowError::Playwright(format!("Failed to launch Playwright: {}", e)))?;
 
     let browser_type_obj = match browser_type {
         "firefox" => playwright.firefox(),
@@ -116,9 +116,7 @@ pub async fn record_session(
         }),
     )
     .await
-    .map_err(|e| {
-        JackSparrowError::Playwright(format!("Failed to set up route: {}", e))
-    })?;
+    .map_err(|e| JackSparrowError::Playwright(format!("Failed to set up route: {}", e)))?;
 
     println!("Navigate to your target URL in the browser.");
     println!("Press Ctrl+C when done recording.");
@@ -128,9 +126,7 @@ pub async fn record_session(
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
     })
-    .map_err(|e| {
-        JackSparrowError::Playwright(format!("Failed to set Ctrl+C handler: {}", e))
-    })?;
+    .map_err(|e| JackSparrowError::Playwright(format!("Failed to set Ctrl+C handler: {}", e)))?;
 
     while running.load(Ordering::SeqCst) {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -139,18 +135,13 @@ pub async fn record_session(
     println!("\nRecording stopped.");
 
     let har_data = har.lock().await;
-    let json = har_data.to_json().map_err(|e| {
-        JackSparrowError::Playwright(format!("Failed to serialize HAR: {}", e))
-    })?;
+    let json = har_data
+        .to_json()
+        .map_err(|e| JackSparrowError::Playwright(format!("Failed to serialize HAR: {}", e)))?;
 
     std::fs::write(output, &json)?;
 
-    let entry_count = har_data
-        .log
-        .entries
-        .as_ref()
-        .map(|e| e.len())
-        .unwrap_or(0);
+    let entry_count = har_data.log.entries.as_ref().map(|e| e.len()).unwrap_or(0);
     println!("Saved {} entries to: {}", entry_count, output.display());
 
     browser

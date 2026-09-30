@@ -217,18 +217,14 @@ impl CrawlTargetExtractor {
                 // Stored XSS: Forms that submit data to the server
                 targets
                     .iter()
-                    .filter(|t| {
-                        t.target_type == TargetType::Form
-                    })
+                    .filter(|t| t.target_type == TargetType::Form)
                     .collect()
             }
             ScannerType::XssDom => {
                 // DOM XSS: Pages with inline scripts
                 targets
                     .iter()
-                    .filter(|t| {
-                        t.target_type == TargetType::PageWithScripts
-                    })
+                    .filter(|t| t.target_type == TargetType::PageWithScripts)
                     .collect()
             }
             ScannerType::Idor => {
@@ -294,17 +290,11 @@ impl CrawlTargetExtractor {
             }
             ScannerType::SubdomainEnum => {
                 // Subdomain enum: only root page
-                targets
-                    .iter()
-                    .filter(|t| t.depth == 0)
-                    .collect()
+                targets.iter().filter(|t| t.depth == 0).collect()
             }
             ScannerType::WafDetection => {
                 // WAF: only root page
-                targets
-                    .iter()
-                    .filter(|t| t.depth == 0)
-                    .collect()
+                targets.iter().filter(|t| t.depth == 0).collect()
             }
             ScannerType::JwtAnalysis => {
                 // JWT: all pages (check cookies/headers)
@@ -312,10 +302,7 @@ impl CrawlTargetExtractor {
             }
             ScannerType::GraphQLIntrospection => {
                 // GraphQL: only root page
-                targets
-                    .iter()
-                    .filter(|t| t.depth == 0)
-                    .collect()
+                targets.iter().filter(|t| t.depth == 0).collect()
             }
             ScannerType::ApiSecurity => {
                 // API Security: all pages
@@ -323,10 +310,7 @@ impl CrawlTargetExtractor {
             }
             ScannerType::CloudMetadata => {
                 // Cloud metadata: only root page
-                targets
-                    .iter()
-                    .filter(|t| t.depth == 0)
-                    .collect()
+                targets.iter().filter(|t| t.depth == 0).collect()
             }
             ScannerType::Xxe => {
                 // XXE: URLs with params and forms (XML endpoints)
@@ -353,18 +337,14 @@ impl CrawlTargetExtractor {
                 // Form injection: only forms with POST method
                 targets
                     .iter()
-                    .filter(|t| {
-                        t.target_type == TargetType::Form
-                    })
+                    .filter(|t| t.target_type == TargetType::Form)
                     .collect()
             }
             ScannerType::Csrf => {
                 // CSRF: forms with state-changing methods
                 targets
                     .iter()
-                    .filter(|t| {
-                        t.target_type == TargetType::Form
-                    })
+                    .filter(|t| t.target_type == TargetType::Form)
                     .collect()
             }
             ScannerType::FileUpload => {
@@ -417,18 +397,10 @@ impl CrawlTargetExtractor {
                 // WebSocket: all pages (test for WS upgrade)
                 targets.iter().collect()
             }
-            ScannerType::HttpSmuggling => {
-                targets.iter().collect()
-            }
-            ScannerType::AuthBypass => {
-                targets.iter().collect()
-            }
-            ScannerType::GraphqlAttack => {
-                targets.iter().collect()
-            }
-            ScannerType::CachePoisoning => {
-                targets.iter().collect()
-            }
+            ScannerType::HttpSmuggling => targets.iter().collect(),
+            ScannerType::AuthBypass => targets.iter().collect(),
+            ScannerType::GraphqlAttack => targets.iter().collect(),
+            ScannerType::CachePoisoning => targets.iter().collect(),
         }
     }
 
@@ -444,19 +416,17 @@ impl CrawlTargetExtractor {
                         .params
                         .iter()
                         .filter(|p| p.param_type == ParamType::Query)
-                        .map(|p| {
-                            format!(
-                                "{}={}",
-                                p.name,
-                                p.value.as_deref().unwrap_or("test")
-                            )
-                        })
+                        .map(|p| format!("{}={}", p.name, p.value.as_deref().unwrap_or("test")))
                         .collect();
 
                     if query.is_empty() {
                         t.url.to_string()
                     } else {
-                        format!("{}?{}", t.url.as_str().split('?').next().unwrap_or(""), query.join("&"))
+                        format!(
+                            "{}?{}",
+                            t.url.as_str().split('?').next().unwrap_or(""),
+                            query.join("&")
+                        )
                     }
                 }
             })
@@ -468,7 +438,7 @@ impl CrawlTargetExtractor {
 mod tests {
     use super::*;
     use crate::core::crawler::engine::CrawlResults;
-    use crate::core::crawler::parser::{ParsedPage, DiscoveredForm, FormInput, Method};
+    use crate::core::crawler::parser::{DiscoveredForm, FormInput, Method, ParsedPage};
     use std::collections::HashMap;
 
     fn make_form(action: &str, method: Method, inputs: Vec<FormInput>) -> DiscoveredForm {
@@ -609,7 +579,8 @@ mod tests {
         };
 
         let targets = CrawlTargetExtractor::extract_targets(&results);
-        let sqli_targets = CrawlTargetExtractor::targets_for_scanner(&targets, ScannerType::SqlInjection);
+        let sqli_targets =
+            CrawlTargetExtractor::targets_for_scanner(&targets, ScannerType::SqlInjection);
         assert_eq!(sqli_targets.len(), 1);
     }
 

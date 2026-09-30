@@ -172,10 +172,9 @@ impl Har {
 
     /// Add an entry
     pub fn add_entry(&mut self, entry: HarEntry) {
-        self.log
-            .entries
-            .as_mut()
-            .map(|e| e.push(entry));
+        if let Some(e) = self.log.entries.as_mut() {
+            e.push(entry)
+        }
     }
 
     /// Serialize to JSON string

@@ -1,5 +1,6 @@
 use dashmap::DashMap;
 use reqwest::Client;
+use std::cmp::Reverse;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use thiserror::Error;
@@ -50,7 +51,7 @@ impl RobotsFile {
     pub fn is_allowed(&self, path: &str) -> bool {
         // Sort rules by path length (longest first) for specificity
         let mut sorted_rules: Vec<&RobotsRule> = self.rules.iter().collect();
-        sorted_rules.sort_by(|a, b| b.path.len().cmp(&a.path.len()));
+        sorted_rules.sort_by_key(|rule| Reverse(rule.path.len()));
 
         // Find the most specific matching rule
         for rule in &sorted_rules {
@@ -65,7 +66,7 @@ impl RobotsFile {
     /// Get the crawl delay as a Duration.
     pub fn delay_duration(&self) -> Duration {
         self.crawl_delay
-            .map(|d| Duration::from_secs_f64(d))
+            .map(Duration::from_secs_f64)
             .unwrap_or(Duration::from_secs(1))
     }
 }

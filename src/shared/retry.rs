@@ -88,7 +88,7 @@ fn rand_simple() -> f64 {
     use std::hash::{BuildHasher, Hasher};
     let s = RandomState::new();
     let mut hasher = s.build_hasher();
-    hasher.write_u64(unsafe { std::mem::transmute::<_, u64>(0u64) });
+    hasher.write_u64(0);
     let bits = hasher.finish();
     (bits >> 11) as f64 / (1u64 << 53) as f64
 }
@@ -148,7 +148,7 @@ pub async fn retry_request(
                 }
 
                 // 4xx (except 429) = don't retry
-                if status >= 400 && status < 500 && status != 429 {
+                if (400..500).contains(&status) && status != 429 {
                     return RetryResult::NoRetry(format!("HTTP {}", status));
                 }
 

@@ -99,18 +99,20 @@ impl ScanAuditLog {
         let avg_duration = if self.entries.is_empty() {
             0.0
         } else {
-            self.entries.iter().map(|e| e.duration_ms as f64).sum::<f64>()
+            self.entries
+                .iter()
+                .map(|e| e.duration_ms as f64)
+                .sum::<f64>()
                 / self.entries.len() as f64
         };
 
-        let status_counts = self
-            .entries
-            .iter()
-            .filter_map(|e| e.response_status)
-            .fold(std::collections::HashMap::new(), |mut acc, s| {
+        let status_counts = self.entries.iter().filter_map(|e| e.response_status).fold(
+            std::collections::HashMap::new(),
+            |mut acc, s| {
                 *acc.entry(s).or_insert(0) += 1;
                 acc
-            });
+            },
+        );
 
         AuditSummary {
             session_id: self.session_id.clone(),
@@ -126,8 +128,7 @@ impl ScanAuditLog {
 
     /// Save audit log to JSON file
     pub fn save(&self, path: &PathBuf) -> Result<(), std::io::Error> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(path, json)
     }
 }
@@ -204,10 +205,7 @@ impl AuditLogger {
         if let Ok(log) = self.log.lock() {
             log.save(path)
         } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to acquire audit log lock",
-            ))
+            Err(std::io::Error::other("Failed to acquire audit log lock"))
         }
     }
 
@@ -266,17 +264,11 @@ pub fn init_logging(verbose: bool, log_file: Option<&str>) {
                     .init();
             }
             Err(_) => {
-                fmt()
-                    .with_env_filter(env_filter)
-                    .with_target(false)
-                    .init();
+                fmt().with_env_filter(env_filter).with_target(false).init();
             }
         }
     } else {
-        fmt()
-            .with_env_filter(env_filter)
-            .with_target(false)
-            .init();
+        fmt().with_env_filter(env_filter).with_target(false).init();
     }
 }
 
@@ -405,8 +397,28 @@ mod tests {
     #[test]
     fn test_audit_logger_thread_safe() {
         let logger = AuditLogger::new("s1", "http://test.com");
-        logger.record_request("headers", "GET", "http://test.com", Some(200), 100, 0, None, None, None);
-        logger.record_request("ssti", "POST", "http://test.com/r", Some(500), 5000, 2, Some("timeout".to_string()), None, None);
+        logger.record_request(
+            "headers",
+            "GET",
+            "http://test.com",
+            Some(200),
+            100,
+            0,
+            None,
+            None,
+            None,
+        );
+        logger.record_request(
+            "ssti",
+            "POST",
+            "http://test.com/r",
+            Some(500),
+            5000,
+            2,
+            Some("timeout".to_string()),
+            None,
+            None,
+        );
 
         let snapshot = logger.snapshot().unwrap();
         assert_eq!(snapshot.total_requests, 2);

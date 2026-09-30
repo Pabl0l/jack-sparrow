@@ -1,7 +1,7 @@
-/// Source database for DOM XSS detection.
-///
-/// Sources are locations where untrusted user input can enter the DOM,
-/// potentially leading to XSS if the data reaches a dangerous sink.
+//! Source database for DOM XSS detection.
+//!
+//! Sources are locations where untrusted user input can enter the DOM,
+//! potentially leading to XSS if the data reaches a dangerous sink.
 
 /// A detected source in JavaScript code.
 #[derive(Debug, Clone)]
@@ -134,7 +134,8 @@ pub fn get_all_sources() -> Vec<SourcePattern> {
         },
         SourcePattern {
             name: "fetch.response".to_string(),
-            pattern: r#"(?i)\bfetch\s*\([^)]*\)(?:\s*\.then\s*\([^)]*\)\s*\.then\s*\([^)]*\))?"#.to_string(),
+            pattern: r#"(?i)\bfetch\s*\([^)]*\)(?:\s*\.then\s*\([^)]*\)\s*\.then\s*\([^)]*\))?"#
+                .to_string(),
             user_controlled: false,
             risk: SourceRisk::Medium,
         },
@@ -181,7 +182,9 @@ pub fn find_sources_in_code(code: &str) -> Vec<Source> {
             for mat in re.find_iter(code) {
                 let before = &code[..mat.start()];
                 let line = before.lines().count();
-                let col = before.rfind('\n').map_or(mat.start(), |pos| mat.start() - pos - 1);
+                let col = before
+                    .rfind('\n')
+                    .map_or(mat.start(), |pos| mat.start() - pos - 1);
 
                 sources.push(Source {
                     name: pattern.name.clone(),

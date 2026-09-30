@@ -37,28 +37,49 @@ const INTROSPECTION_QUERY: &str = r#"{
 
 /// Sensitive GraphQL field names that indicate high-risk exposure
 const SENSITIVE_FIELDS: &[&str] = &[
-    "password", "secret", "token", "api_key", "apikey",
-    "creditCard", "credit_card", "ssn", "social_security",
-    "private_key", "privateKey", "admin", "root",
-    "deleteUser", "delete_user", "dropTable", "drop_table",
-    "execute", "runQuery", "run_mutation", "eval",
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "creditCard",
+    "credit_card",
+    "ssn",
+    "social_security",
+    "private_key",
+    "privateKey",
+    "admin",
+    "root",
+    "deleteUser",
+    "delete_user",
+    "dropTable",
+    "drop_table",
+    "execute",
+    "runQuery",
+    "run_mutation",
+    "eval",
 ];
 
 /// Dangerous mutation patterns
 const DANGEROUS_MUTATIONS: &[&str] = &[
-    "delete", "remove", "destroy", "drop", "truncate",
-    "update", "modify", "change", "grant", "revoke",
-    "execute", "run", "import", "export", "upload",
+    "delete", "remove", "destroy", "drop", "truncate", "update", "modify", "change", "grant",
+    "revoke", "execute", "run", "import", "export", "upload",
 ];
 
 /// Check if a GraphQL type name is a sensitive/internal type
 fn is_sensitive_type(name: &str) -> bool {
     let lower = name.to_lowercase();
-    lower.contains("user") || lower.contains("admin") || lower.contains("auth")
-        || lower.contains("session") || lower.contains("token")
-        || lower.contains("password") || lower.contains("credential")
-        || lower.contains("payment") || lower.contains("billing")
-        || lower.contains("internal") || lower.contains("private")
+    lower.contains("user")
+        || lower.contains("admin")
+        || lower.contains("auth")
+        || lower.contains("session")
+        || lower.contains("token")
+        || lower.contains("password")
+        || lower.contains("credential")
+        || lower.contains("payment")
+        || lower.contains("billing")
+        || lower.contains("internal")
+        || lower.contains("private")
 }
 
 /// Analyze GraphQL schema for security issues
@@ -98,7 +119,10 @@ fn analyze_schema(schema: &Value) -> Vec<(Severity, String, String, String)> {
 
                     // Check if field name matches sensitive patterns
                     for &sensitive in SENSITIVE_FIELDS {
-                        if field_name.to_lowercase().contains(&sensitive.to_lowercase()) {
+                        if field_name
+                            .to_lowercase()
+                            .contains(&sensitive.to_lowercase())
+                        {
                             issues.push((
                                 Severity::High,
                                 format!("Sensitive field exposed: {}.{}", type_name, field_name),
@@ -118,7 +142,8 @@ fn analyze_schema(schema: &Value) -> Vec<(Severity, String, String, String)> {
                     if let Some(args) = field.get("args").and_then(|v| v.as_array()) {
                         for arg in args {
                             let arg_name = arg.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                            let arg_type = arg.get("type")
+                            let arg_type = arg
+                                .get("type")
                                 .and_then(|t| t.get("name"))
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("");
@@ -126,8 +151,10 @@ fn analyze_schema(schema: &Value) -> Vec<(Severity, String, String, String)> {
                             // String arguments with "query" or "filter" in name
                             // could be vulnerable to injection
                             let lower_name = arg_name.to_lowercase();
-                            if (lower_name.contains("query") || lower_name.contains("filter")
-                                || lower_name.contains("search") || lower_name.contains("where"))
+                            if (lower_name.contains("query")
+                                || lower_name.contains("filter")
+                                || lower_name.contains("search")
+                                || lower_name.contains("where"))
                                 && (arg_type == "String" || arg_type == "ID")
                             {
                                 issues.push((
@@ -222,8 +249,17 @@ impl GraphQLIntrospectionScanner {
 
     /// Try common GraphQL endpoint paths
     fn graphql_endpoints(base_url: &str) -> Vec<String> {
-        let paths = ["/graphql", "/graphiql", "/v1/graphql", "/v2/graphql",
-                     "/api/graphql", "/gql", "/query", "/playground", "/altair"];
+        let paths = [
+            "/graphql",
+            "/graphiql",
+            "/v1/graphql",
+            "/v2/graphql",
+            "/api/graphql",
+            "/gql",
+            "/query",
+            "/playground",
+            "/altair",
+        ];
         let mut endpoints = Vec::new();
         let base = base_url.trim_end_matches('/');
         for path in &paths {
@@ -258,9 +294,10 @@ impl Scanner for GraphQLIntrospectionScanner {
 
         for endpoint in &endpoints {
             // Skip if we already found introspection on a prior endpoint
-            if all_findings.iter().any(|f: &Finding| {
-                f.title.contains("Introspection enabled") && f.url == *endpoint
-            }) {
+            if all_findings
+                .iter()
+                .any(|f: &Finding| f.title.contains("Introspection enabled") && f.url == *endpoint)
+            {
                 continue;
             }
 
@@ -269,7 +306,8 @@ impl Scanner for GraphQLIntrospectionScanner {
                 "query": INTROSPECTION_QUERY,
             });
 
-            let mut request = client.post(endpoint)
+            let mut request = client
+                .post(endpoint)
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
                 .json(&body);
@@ -290,7 +328,8 @@ impl Scanner for GraphQLIntrospectionScanner {
             };
 
             let _status = response.status();
-            let content_type = response.headers()
+            let content_type = response
+                .headers()
                 .get("content-type")
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("")
@@ -314,12 +353,14 @@ impl Scanner for GraphQLIntrospectionScanner {
             if let Some(data) = json.get("data") {
                 if let Some(schema) = data.get("__schema") {
                     // Introspection is enabled!
-                    let type_count = schema.get("types")
+                    let type_count = schema
+                        .get("types")
                         .and_then(|v| v.as_array())
                         .map(|a| a.len())
                         .unwrap_or(0);
 
-                    let directive_count = schema.get("directives")
+                    let directive_count = schema
+                        .get("directives")
                         .and_then(|v| v.as_array())
                         .map(|a| a.len())
                         .unwrap_or(0);
@@ -338,11 +379,17 @@ impl Scanner for GraphQLIntrospectionScanner {
                         endpoint, type_count, directive_count
                     );
                     finding.evidence = Evidence {
-                        request: Some(format!("POST {} HTTP/1.1\nContent-Type: application/json\n\n{}", endpoint, INTROSPECTION_QUERY)),
+                        request: Some(format!(
+                            "POST {} HTTP/1.1\nContent-Type: application/json\n\n{}",
+                            endpoint, INTROSPECTION_QUERY
+                        )),
                         response: Some(format!("{}...", &body_text[..body_text.len().min(500)])),
                         payload: Some(INTROSPECTION_QUERY.to_string()),
                         pattern: Some("__schema".to_string()),
-                        context: Some(format!("{} types, {} directives", type_count, directive_count)),
+                        context: Some(format!(
+                            "{} types, {} directives",
+                            type_count, directive_count
+                        )),
                     };
                     finding.remediation = "Disable GraphQL introspection in production. \
                         If needed, restrict it to authenticated/admin users. \
@@ -350,7 +397,8 @@ impl Scanner for GraphQLIntrospectionScanner {
                         .to_string();
                     finding.references = vec![
                         "https://graphql.org/learn/introspection/".to_string(),
-                        "https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html".to_string(),
+                        "https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html"
+                            .to_string(),
                         "https://portswigger.net/web-security/graphql".to_string(),
                     ];
                     finding.cvss_score = Some(5.3);
@@ -405,7 +453,8 @@ impl Scanner for GraphQLIntrospectionScanner {
             // Check for error messages that reveal GraphQL is present
             if let Some(errors) = json.get("errors") {
                 if let Some(first_error) = errors.get(0) {
-                    let msg = first_error.get("message")
+                    let msg = first_error
+                        .get("message")
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
 
@@ -462,7 +511,11 @@ mod tests {
         });
         let issues = analyze_schema(&schema);
         // __Schema is skipped, Query.hello is not sensitive
-        assert!(issues.is_empty(), "Should have no issues, got: {:?}", issues);
+        assert!(
+            issues.is_empty(),
+            "Should have no issues, got: {:?}",
+            issues
+        );
     }
 
     #[test]

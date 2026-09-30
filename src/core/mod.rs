@@ -4,4 +4,3 @@ pub mod perf;
 pub mod recorder;
 pub mod scanners;
 pub mod wordlist;
-

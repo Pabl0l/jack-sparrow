@@ -57,7 +57,9 @@ impl CsrfScanner {
     }
 
     /// Detect the CSRF token type/name if present.
-    fn detect_csrf_token_name(params: &[crate::core::scanners::crawl_integration::ScanParam]) -> Option<String> {
+    fn detect_csrf_token_name(
+        params: &[crate::core::scanners::crawl_integration::ScanParam],
+    ) -> Option<String> {
         params.iter().find_map(|p| {
             let name_lower = p.name.to_lowercase();
             if CSRF_PATTERNS.iter().any(|pat| name_lower.contains(pat)) {
@@ -83,7 +85,10 @@ impl CsrfScanner {
                 if p.name == token_param {
                     (p.name.as_str(), String::new()) // Empty token
                 } else {
-                    (p.name.as_str(), p.value.clone().unwrap_or_else(|| "test".to_string()))
+                    (
+                        p.name.as_str(),
+                        p.value.clone().unwrap_or_else(|| "test".to_string()),
+                    )
                 }
             })
             .collect();
@@ -96,10 +101,13 @@ impl CsrfScanner {
             req = req.header("Cookie", cookies.as_str());
         }
 
-        let resp = req.send().await.map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "csrf-scanner".to_string(),
-            message: e.to_string(),
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "csrf-scanner".to_string(),
+                message: e.to_string(),
+            })?;
 
         let status = resp.status().as_u16();
         let body_text = resp.text().await.unwrap_or_default();
@@ -131,7 +139,10 @@ impl CsrfScanner {
                 if p.name == token_param {
                     (p.name.as_str(), "test_token_12345".to_string())
                 } else {
-                    (p.name.as_str(), p.value.clone().unwrap_or_else(|| "test".to_string()))
+                    (
+                        p.name.as_str(),
+                        p.value.clone().unwrap_or_else(|| "test".to_string()),
+                    )
                 }
             })
             .collect();
@@ -144,10 +155,13 @@ impl CsrfScanner {
             req = req.header("Cookie", cookies.as_str());
         }
 
-        let resp = req.send().await.map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "csrf-scanner".to_string(),
-            message: e.to_string(),
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "csrf-scanner".to_string(),
+                message: e.to_string(),
+            })?;
 
         let status = resp.status().as_u16();
         let body_text = resp.text().await.unwrap_or_default();
@@ -177,10 +191,13 @@ impl CsrfScanner {
             req = req.header("Cookie", cookies.as_str());
         }
 
-        let resp = req.send().await.map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "csrf-scanner".to_string(),
-            message: e.to_string(),
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "csrf-scanner".to_string(),
+                message: e.to_string(),
+            })?;
 
         let mut issues = Vec::new();
         let headers = resp.headers();
@@ -200,26 +217,25 @@ impl CsrfScanner {
                 }
 
                 // Check for Secure flag on sensitive cookies
-                if cookie_lower.contains("session")
+                if (cookie_lower.contains("session")
                     || cookie_lower.contains("token")
-                    || cookie_lower.contains("auth")
+                    || cookie_lower.contains("auth"))
+                    && !cookie_lower.contains("secure")
                 {
-                    if !cookie_lower.contains("secure") {
-                        issues.push(format!(
-                            "Sensitive cookie '{}' missing Secure flag",
-                            cookie_str.split('=').next().unwrap_or("unknown")
-                        ));
-                    }
+                    issues.push(format!(
+                        "Sensitive cookie '{}' missing Secure flag",
+                        cookie_str.split('=').next().unwrap_or("unknown")
+                    ));
                 }
 
                 // Check for HttpOnly
-                if cookie_lower.contains("session") || cookie_lower.contains("token") {
-                    if !cookie_lower.contains("httponly") {
-                        issues.push(format!(
-                            "Cookie '{}' missing HttpOnly flag",
-                            cookie_str.split('=').next().unwrap_or("unknown")
-                        ));
-                    }
+                if (cookie_lower.contains("session") || cookie_lower.contains("token"))
+                    && !cookie_lower.contains("httponly")
+                {
+                    issues.push(format!(
+                        "Cookie '{}' missing HttpOnly flag",
+                        cookie_str.split('=').next().unwrap_or("unknown")
+                    ));
                 }
             }
         }
@@ -382,7 +398,11 @@ impl CsrfScanner {
 
         // Check cookie security on first target's domain
         if let Some(first) = targets.first() {
-            let domain_url = format!("{}://{}", first.url.scheme(), first.url.host_str().unwrap_or(""));
+            let domain_url = format!(
+                "{}://{}",
+                first.url.scheme(),
+                first.url.host_str().unwrap_or("")
+            );
             if let Ok(issues) = self.check_samesite_cookies(&domain_url, context).await {
                 for issue in issues {
                     findings.push(Finding {
@@ -457,7 +477,10 @@ mod tests {
 
     #[test]
     fn test_has_csrf_token_with_token() {
-        let params = vec![make_param("username"), make_hidden_param("csrf_token", "abc123")];
+        let params = vec![
+            make_param("username"),
+            make_hidden_param("csrf_token", "abc123"),
+        ];
         assert!(CsrfScanner::has_csrf_token(&params));
     }
 
@@ -470,7 +493,10 @@ mod tests {
     #[test]
     fn test_detect_csrf_token_name() {
         let params = vec![make_param("username"), make_hidden_param("_token", "xyz")];
-        assert_eq!(CsrfScanner::detect_csrf_token_name(&params), Some("_token".to_string()));
+        assert_eq!(
+            CsrfScanner::detect_csrf_token_name(&params),
+            Some("_token".to_string())
+        );
     }
 
     #[test]
@@ -495,7 +521,9 @@ mod tests {
 
         for (name, expected) in test_cases {
             let _param = make_param(name);
-            let has = CSRF_PATTERNS.iter().any(|pat| name.to_lowercase().contains(pat));
+            let has = CSRF_PATTERNS
+                .iter()
+                .any(|pat| name.to_lowercase().contains(pat));
             assert_eq!(has, expected, "Failed for param: {}", name);
         }
     }
@@ -527,13 +555,22 @@ mod tests {
     fn test_csrf_variations() {
         // Test various CSRF token naming conventions
         let names = [
-            "csrf_token", "csrf", "xsrf_token", "_token",
-            "csrfmiddlewaretoken", "authenticity_token",
-            "_csrf", "csrffield", "token", "nonce",
+            "csrf_token",
+            "csrf",
+            "xsrf_token",
+            "_token",
+            "csrfmiddlewaretoken",
+            "authenticity_token",
+            "_csrf",
+            "csrffield",
+            "token",
+            "nonce",
         ];
         for name in &names {
             let _param = make_param(name);
-            let has = CSRF_PATTERNS.iter().any(|pat| name.to_lowercase().contains(pat));
+            let has = CSRF_PATTERNS
+                .iter()
+                .any(|pat| name.to_lowercase().contains(pat));
             assert!(has, "Pattern should match: {}", name);
         }
     }

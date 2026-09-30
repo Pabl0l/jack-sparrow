@@ -1,7 +1,7 @@
-/// Sink database for DOM XSS detection.
-///
-/// Sinks are dangerous JavaScript functions/methods that can execute
-/// or render untrusted data, leading to XSS vulnerabilities.
+//! Sink database for DOM XSS detection.
+//!
+//! Sinks are dangerous JavaScript functions/methods that can execute
+//! or render untrusted data, leading to XSS vulnerabilities.
 
 /// Risk level for a sink.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -257,10 +257,7 @@ mod tests {
     #[test]
     fn has_high_sinks() {
         let sinks = get_all_sinks();
-        let high: Vec<&SinkPattern> = sinks
-            .iter()
-            .filter(|s| s.risk == SinkRisk::High)
-            .collect();
+        let high: Vec<&SinkPattern> = sinks.iter().filter(|s| s.risk == SinkRisk::High).collect();
         assert!(high.len() >= 5, "Should have at least 5 high-risk sinks");
     }
 
@@ -280,10 +277,7 @@ mod tests {
     #[test]
     fn has_low_sinks() {
         let sinks = get_all_sinks();
-        let low: Vec<&SinkPattern> = sinks
-            .iter()
-            .filter(|s| s.risk == SinkRisk::Low)
-            .collect();
+        let low: Vec<&SinkPattern> = sinks.iter().filter(|s| s.risk == SinkRisk::Low).collect();
         assert!(low.len() >= 3, "Should have at least 3 low-risk sinks");
     }
 

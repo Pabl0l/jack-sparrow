@@ -4,6 +4,10 @@
 //! Each payload category includes encoding tricks, comment injection,
 //! case variations, and protocol-level evasion techniques.
 
+// Payload catalogs read better as sequential pushes with inline comments
+// than as one giant `vec![...]` literal.
+#![allow(clippy::vec_init_then_push)]
+
 /// A bypass payload with metadata about its technique and target WAFs.
 #[derive(Debug, Clone)]
 pub struct BypassPayload {
@@ -449,7 +453,12 @@ pub fn all_bypass_payloads() -> Vec<BypassPayload> {
 pub fn payloads_for_waf(waf_name: &str) -> Vec<BypassPayload> {
     all_bypass_payloads()
         .into_iter()
-        .filter(|p| p.target_wafs.is_empty() || p.target_wafs.iter().any(|w| w.eq_ignore_ascii_case(waf_name)))
+        .filter(|p| {
+            p.target_wafs.is_empty()
+                || p.target_wafs
+                    .iter()
+                    .any(|w| w.eq_ignore_ascii_case(waf_name))
+        })
         .collect()
 }
 
@@ -468,33 +477,54 @@ mod tests {
     #[test]
     fn test_sqli_payloads_not_empty() {
         let payloads = sqli_bypass_payloads();
-        assert!(payloads.len() >= 20, "Expected at least 20 SQLi bypass payloads, got {}", payloads.len());
+        assert!(
+            payloads.len() >= 20,
+            "Expected at least 20 SQLi bypass payloads, got {}",
+            payloads.len()
+        );
     }
 
     #[test]
     fn test_xss_payloads_not_empty() {
         let payloads = xss_bypass_payloads();
-        assert!(payloads.len() >= 15, "Expected at least 15 XSS bypass payloads, got {}", payloads.len());
+        assert!(
+            payloads.len() >= 15,
+            "Expected at least 15 XSS bypass payloads, got {}",
+            payloads.len()
+        );
     }
 
     #[test]
     fn test_ssti_payloads_not_empty() {
         let payloads = ssti_bypass_payloads();
-        assert!(payloads.len() >= 8, "Expected at least 8 SSTI bypass payloads, got {}", payloads.len());
+        assert!(
+            payloads.len() >= 8,
+            "Expected at least 8 SSTI bypass payloads, got {}",
+            payloads.len()
+        );
     }
 
     #[test]
     fn test_all_payloads_have_technique() {
         for payload in all_bypass_payloads() {
-            assert!(!payload.technique.is_empty(), "Payload missing technique name");
-            assert!(!payload.payload.is_empty(), "Payload missing payload string");
+            assert!(
+                !payload.technique.is_empty(),
+                "Payload missing technique name"
+            );
+            assert!(
+                !payload.payload.is_empty(),
+                "Payload missing payload string"
+            );
         }
     }
 
     #[test]
     fn test_payloads_for_waf_modsecurity() {
         let payloads = payloads_for_waf("ModSecurity");
-        assert!(!payloads.is_empty(), "Should have ModSecurity-specific payloads");
+        assert!(
+            !payloads.is_empty(),
+            "Should have ModSecurity-specific payloads"
+        );
         // All should be either generic or ModSecurity-targeted
         for p in &payloads {
             assert!(
@@ -509,7 +539,10 @@ mod tests {
     #[test]
     fn test_payloads_for_waf_cloudflare() {
         let payloads = payloads_for_waf("Cloudflare");
-        assert!(!payloads.is_empty(), "Should have Cloudflare-specific payloads");
+        assert!(
+            !payloads.is_empty(),
+            "Should have Cloudflare-specific payloads"
+        );
     }
 
     #[test]
@@ -531,7 +564,11 @@ mod tests {
     fn test_generic_payloads_exist() {
         let all = all_bypass_payloads();
         let generic = all.iter().filter(|p| p.target_wafs.is_empty()).count();
-        assert!(generic > 5, "Should have at least 5 generic (WAF-agnostic) payloads, got {}", generic);
+        assert!(
+            generic > 5,
+            "Should have at least 5 generic (WAF-agnostic) payloads, got {}",
+            generic
+        );
     }
 
     #[test]
@@ -539,9 +576,24 @@ mod tests {
         let payloads = all_bypass_payloads();
         let techniques: Vec<&str> = payloads.iter().map(|p| p.technique).collect();
         // Should cover various categories
-        assert!(techniques.iter().any(|t| t.contains("comment") || t.contains("Comment")), "Should have comment-based techniques");
-        assert!(techniques.iter().any(|t| t.contains("case") || t.contains("Case") || t.contains("Mixed")), "Should have case variation techniques");
-        assert!(techniques.iter().any(|t| t.contains("ncod") || t.contains("entity") || t.contains("URL")), "Should have encoding techniques");
+        assert!(
+            techniques
+                .iter()
+                .any(|t| t.contains("comment") || t.contains("Comment")),
+            "Should have comment-based techniques"
+        );
+        assert!(
+            techniques
+                .iter()
+                .any(|t| t.contains("case") || t.contains("Case") || t.contains("Mixed")),
+            "Should have case variation techniques"
+        );
+        assert!(
+            techniques
+                .iter()
+                .any(|t| t.contains("ncod") || t.contains("entity") || t.contains("URL")),
+            "Should have encoding techniques"
+        );
     }
 
     #[test]

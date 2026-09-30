@@ -212,7 +212,10 @@ impl FrontierHandle {
     pub fn enqueue(&self, url: Url, current_depth: u32, max_depth: u32) -> bool {
         // Depth check
         if current_depth >= max_depth {
-            self.inner.stats.depth_exceeded.fetch_add(1, Ordering::Relaxed);
+            self.inner
+                .stats
+                .depth_exceeded
+                .fetch_add(1, Ordering::Relaxed);
             return false;
         }
 

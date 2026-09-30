@@ -185,13 +185,12 @@ impl DomXssScanner {
         };
         finding.cvss_score = Some(dom_finding.risk_score);
         finding.cwe_id = Some("CWE-79".to_string());
-        finding.remediation = format!(
-            "1. Avoid using dangerous sinks with user-controlled data\n\
+        finding.remediation = "1. Avoid using dangerous sinks with user-controlled data\n\
              2. Sanitize input using a library like DOMPurify\n\
              3. Use textContent instead of innerHTML\n\
              4. Validate and encode all user input\n\
              5. Implement Content-Security-Policy headers"
-        );
+            .to_string();
         finding.references = vec![
             "https://owasp.org/www-community/attacks/xss/".to_string(),
             "https://cwe.mitre.org/data/definitions/79.html".to_string(),
@@ -245,19 +244,21 @@ impl Scanner for DomXssScanner {
             req = req.header("Cookie", cookies.as_str());
         }
 
-        let response = req.send().await.map_err(|e| {
-            JackSparrowError::ToolExecutionFailed {
+        let response = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
                 tool: "dom-xss".to_string(),
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
-        let html = response.text().await.map_err(|e| {
-            JackSparrowError::ToolExecutionFailed {
+        let html = response
+            .text()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
                 tool: "dom-xss".to_string(),
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
         let dom_findings = self.analyze_html(&html);
         let findings = dom_findings
@@ -310,10 +311,7 @@ impl DomXssScanner {
 
         // Add external scripts
         for script in &parsed.scripts {
-            html.push_str(&format!(
-                "<script src=\"{}\"></script>\n",
-                script.src
-            ));
+            html.push_str(&format!("<script src=\"{}\"></script>\n", script.src));
         }
 
         // Add inline scripts (already in parsed.inline_scripts)
@@ -322,10 +320,7 @@ impl DomXssScanner {
         // Add iframes
         for iframe in &parsed.iframes {
             if let Some(ref src) = iframe.src {
-                html.push_str(&format!(
-                    "<iframe src=\"{}\"></iframe>\n",
-                    src
-                ));
+                html.push_str(&format!("<iframe src=\"{}\"></iframe>\n", src));
             }
         }
 
@@ -457,9 +452,7 @@ mod tests {
         let findings = scanner.analyze_html(html);
         if let Some(finding) = findings.first() {
             // High confidence should be Critical or High severity
-            assert!(
-                finding.severity == Severity::Critical || finding.severity == Severity::High
-            );
+            assert!(finding.severity == Severity::Critical || finding.severity == Severity::High);
         }
     }
 

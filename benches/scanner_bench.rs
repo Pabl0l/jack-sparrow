@@ -6,7 +6,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use jack_sparrow::core::scanners::crawl_integration::CrawlTargetExtractor;
 use jack_sparrow::core::scanners::dom_xss::DomXssScanner;
 use jack_sparrow::core::scanners::headers::SecurityHeadersScanner;
-use jack_sparrow::core::scanners::tech_fingerprint::TechFingerprintScanner;
 use jack_sparrow::shared::config::JackSparrowConfig;
 use jack_sparrow::shared::context::ScanContext;
 
@@ -57,11 +56,9 @@ fn bench_dom_xss_analysis(c: &mut Criterion) {
 }
 
 fn bench_crawl_target_extraction(c: &mut Criterion) {
-    use jack_sparrow::core::crawler::engine::{CrawledPage, CrawlResults, CrawlStats};
-    use jack_sparrow::core::crawler::parser::{
-        DiscoveredForm, FormInput, HtmlParser, Method, ParsedPage,
-    };
-    use std::collections::HashMap;
+    use jack_sparrow::core::crawler::engine::{CrawlResults, CrawlStats, CrawledPage};
+    use jack_sparrow::core::crawler::parser::HtmlParser;
+
     use url::Url;
 
     let parser = HtmlParser::new(Url::parse("http://example.com").unwrap());
@@ -129,7 +126,7 @@ fn bench_scan_context(c: &mut Criterion) {
 
 fn bench_security_headers_parse(c: &mut Criterion) {
     let config = JackSparrowConfig::default();
-    let scanner = SecurityHeadersScanner::new(&config);
+    let _scanner = SecurityHeadersScanner::new(&config);
 
     // We can't easily bench the async scan without a server,
     // but we can bench the scanner creation

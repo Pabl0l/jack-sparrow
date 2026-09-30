@@ -11,14 +11,9 @@ pub enum AuthConfig {
     /// No authentication
     None,
     /// HTTP Basic Auth
-    BasicAuth {
-        username: String,
-        password: String,
-    },
+    BasicAuth { username: String, password: String },
     /// Bearer token (JWT, API key, etc.)
-    BearerToken {
-        token: String,
-    },
+    BearerToken { token: String },
     /// OAuth 2.0 Client Credentials flow
     OAuth2ClientCredentials {
         token_url: String,
@@ -36,13 +31,9 @@ pub enum AuthConfig {
         scopes: Vec<String>,
     },
     /// Session cookies (from browser export)
-    SessionCookies {
-        cookies: Vec<Cookie>,
-    },
+    SessionCookies { cookies: Vec<Cookie> },
     /// Custom headers
-    CustomHeaders {
-        headers: Vec<(String, String)>,
-    },
+    CustomHeaders { headers: Vec<(String, String)> },
     /// Form-based login — POST credentials to a login endpoint, extract session cookies.
     FormLogin {
         /// URL of the login form (POST target)
@@ -66,8 +57,12 @@ pub enum AuthConfig {
     },
 }
 
-fn default_username_field() -> String { "username".to_string() }
-fn default_password_field() -> String { "password".to_string() }
+fn default_username_field() -> String {
+    "username".to_string()
+}
+fn default_password_field() -> String {
+    "password".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cookie {
@@ -216,13 +211,15 @@ impl OAuth2Manager {
                 Ok(auth_header)
             }
 
-            AuthConfig::OAuth2AuthorizationCode { .. } => {
-                Err("Authorization Code flow requires browser interaction — use record command".to_string())
-            }
+            AuthConfig::OAuth2AuthorizationCode { .. } => Err(
+                "Authorization Code flow requires browser interaction — use record command"
+                    .to_string(),
+            ),
 
-            AuthConfig::FormLogin { .. } => {
-                Err("FormLogin requires FormLoginExecutor — use get_session_cookies() instead".to_string())
-            }
+            AuthConfig::FormLogin { .. } => Err(
+                "FormLogin requires FormLoginExecutor — use get_session_cookies() instead"
+                    .to_string(),
+            ),
 
             AuthConfig::SessionCookies { cookies } => {
                 let cookie_str = cookies
@@ -249,7 +246,9 @@ impl OAuth2Manager {
         request: reqwest::RequestBuilder,
     ) -> Result<reqwest::RequestBuilder, String> {
         match &self.config {
-            AuthConfig::BasicAuth { .. } | AuthConfig::BearerToken { .. } | AuthConfig::OAuth2ClientCredentials { .. } => {
+            AuthConfig::BasicAuth { .. }
+            | AuthConfig::BearerToken { .. }
+            | AuthConfig::OAuth2ClientCredentials { .. } => {
                 let auth_value = self.get_token().await?;
                 Ok(request.header("Authorization", auth_value))
             }
@@ -277,9 +276,10 @@ impl OAuth2Manager {
                 Err("Authorization Code flow not supported in scanner mode".to_string())
             }
 
-            AuthConfig::FormLogin { .. } => {
-                Err("FormLogin requires FormLoginExecutor — use get_session_cookies() instead".to_string())
-            }
+            AuthConfig::FormLogin { .. } => Err(
+                "FormLogin requires FormLoginExecutor — use get_session_cookies() instead"
+                    .to_string(),
+            ),
         }
     }
 
@@ -295,7 +295,10 @@ impl OAuth2Manager {
             AuthConfig::SessionCookies { cookies } => {
                 let cookie_store = reqwest::cookie::Jar::default();
                 for cookie in cookies {
-                    let cookie_str = format!("{}={}; Domain={}; Path={}", cookie.name, cookie.value, cookie.domain, cookie.path);
+                    let cookie_str = format!(
+                        "{}={}; Domain={}; Path={}",
+                        cookie.name, cookie.value, cookie.domain, cookie.path
+                    );
                     if let Ok(url) = format!("https://{}", cookie.domain).parse() {
                         cookie_store.add_cookie_str(&cookie_str, &url);
                     }
@@ -306,7 +309,9 @@ impl OAuth2Manager {
             _ => {}
         }
 
-        builder.build().map_err(|e| format!("Failed to build client: {}", e))
+        builder
+            .build()
+            .map_err(|e| format!("Failed to build client: {}", e))
     }
 }
 
@@ -318,6 +323,12 @@ impl OAuth2Manager {
 /// 3. Return session cookies for use in ScanContext
 pub struct FormLoginExecutor {
     client: reqwest::Client,
+}
+
+impl Default for FormLoginExecutor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FormLoginExecutor {
@@ -333,7 +344,15 @@ impl FormLoginExecutor {
 
     /// Execute form login and return session cookies as a cookie string.
     pub async fn login(&self, config: &AuthConfig) -> Result<String, String> {
-        let (login_url, username, password, username_field, password_field, extra_fields, success_indicator) = match config {
+        let (
+            login_url,
+            username,
+            password,
+            username_field,
+            password_field,
+            extra_fields,
+            success_indicator,
+        ) = match config {
             AuthConfig::FormLogin {
                 login_url,
                 username,
@@ -355,7 +374,8 @@ impl FormLoginExecutor {
         };
 
         // Phase 1: GET the login page to discover form fields and initial cookies
-        let resp = self.client
+        let resp = self
+            .client
             .get(login_url)
             .send()
             .await
@@ -390,7 +410,8 @@ impl FormLoginExecutor {
         form.push((password_field, password.as_str()));
 
         // Phase 3: POST credentials — capture Set-Cookie headers from response
-        let resp = self.client
+        let resp = self
+            .client
             .post(login_url)
             .form(&form)
             .send()
@@ -439,11 +460,15 @@ impl FormLoginExecutor {
             || body_lower.contains("incorrect password")
             || body_lower.contains("wrong password")
         {
-            return Err("Login appears to have failed: detected error message in response".to_string());
+            return Err(
+                "Login appears to have failed: detected error message in response".to_string(),
+            );
         }
 
         if cookie_pairs.is_empty() {
-            return Err("Login completed but no session cookies were found in response".to_string());
+            return Err(
+                "Login completed but no session cookies were found in response".to_string(),
+            );
         }
 
         // Build cookie string: "name1=value1; name2=value2"
@@ -532,7 +557,11 @@ impl FormLoginExecutor {
         let cookie_str = self.login(config).await?;
 
         Ok(ScanContext {
-            cookies: if cookie_str.is_empty() { None } else { Some(cookie_str) },
+            cookies: if cookie_str.is_empty() {
+                None
+            } else {
+                Some(cookie_str)
+            },
             headers: Vec::new(),
             session: None,
         })
@@ -589,10 +618,7 @@ pub fn parse_cookie_string(cookie_str: &str) -> Vec<Cookie> {
 }
 
 /// Parse cookies from a HAR file's cookie array
-pub fn parse_har_cookies(
-    cookies: &[serde_json::Value],
-    domain: &str,
-) -> Vec<Cookie> {
+pub fn parse_har_cookies(cookies: &[serde_json::Value], domain: &str) -> Vec<Cookie> {
     cookies
         .iter()
         .filter_map(|c| {
@@ -607,14 +633,8 @@ pub fn parse_har_cookies(
                     .and_then(|p| p.as_str())
                     .unwrap_or("/")
                     .to_string(),
-                secure: c
-                    .get("secure")
-                    .and_then(|s| s.as_bool())
-                    .unwrap_or(false),
-                http_only: c
-                    .get("httpOnly")
-                    .and_then(|h| h.as_bool())
-                    .unwrap_or(false),
+                secure: c.get("secure").and_then(|s| s.as_bool()).unwrap_or(false),
+                http_only: c.get("httpOnly").and_then(|h| h.as_bool()).unwrap_or(false),
                 expires: c
                     .get("expires")
                     .and_then(|e| e.as_str())
@@ -775,7 +795,12 @@ mod tests {
     fn test_form_login_config_defaults() {
         let json = r#"{"type":"FormLogin","login_url":"http://test.com/login","username":"u","password":"p"}"#;
         let config: AuthConfig = serde_json::from_str(json).unwrap();
-        if let AuthConfig::FormLogin { username_field, password_field, .. } = config {
+        if let AuthConfig::FormLogin {
+            username_field,
+            password_field,
+            ..
+        } = config
+        {
             assert_eq!(username_field, "username");
             assert_eq!(password_field, "password");
         } else {
@@ -830,7 +855,14 @@ mod tests {
         let json = r#"{"type":"FormLogin","login_url":"http://dvwa/login.php","username":"admin","password":"password"}"#;
         let config: AuthConfig = serde_json::from_str(json).unwrap();
         match config {
-            AuthConfig::FormLogin { login_url, username, password, extra_fields, success_indicator, .. } => {
+            AuthConfig::FormLogin {
+                login_url,
+                username,
+                password,
+                extra_fields,
+                success_indicator,
+                ..
+            } => {
                 assert_eq!(login_url, "http://dvwa/login.php");
                 assert_eq!(username, "admin");
                 assert_eq!(password, "password");

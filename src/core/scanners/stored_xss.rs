@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use crate::core::scanners::crawl_integration::{CrawlTargetExtractor, ParamType, ScanTarget};
 use crate::core::crawler::engine::CrawlResults;
+use crate::core::scanners::crawl_integration::{CrawlTargetExtractor, ParamType, ScanTarget};
 use crate::core::scanners::{Scanner, ScannerType};
 use crate::shared::config::JackSparrowConfig;
 use crate::shared::context::ScanContext;
@@ -142,7 +142,7 @@ impl StoredXssScanner {
 
         for payload in payloads {
             // Generate unique marker for this payload
-            let marker = format!("WS_{}", Uuid::new_v4().as_simple().to_string()[..8].to_string());
+            let marker = format!("WS_{}", &Uuid::new_v4().as_simple().to_string()[..8]);
             let test_payload = format!("{}{}", marker, payload);
 
             // Inject payload
@@ -158,14 +158,9 @@ impl StoredXssScanner {
             tokio::time::sleep(Duration::from_millis(self.request_delay)).await;
 
             // Check for reflection in other pages
-            if let Some(reflection) = self
-                .check_reflection(target, &marker, context)
-                .await?
-            {
+            if let Some(reflection) = self.check_reflection(target, &marker, context).await? {
                 // Verify persistence
-                let persistent = self
-                    .verify_persistence(target, &marker, context)
-                    .await?;
+                let persistent = self.verify_persistence(target, &marker, context).await?;
 
                 let context = self.detect_reflection_context(&reflection, &marker);
 
@@ -176,7 +171,11 @@ impl StoredXssScanner {
                     reflection_url: reflection,
                     context,
                     persistent,
-                    verification_count: if persistent { self.max_verifications } else { 1 },
+                    verification_count: if persistent {
+                        self.max_verifications
+                    } else {
+                        1
+                    },
                 }));
             }
         }
@@ -271,9 +270,10 @@ impl StoredXssScanner {
         }
 
         // Check the target page
-        if let Some(_) = self
+        if self
             .check_page_for_marker(target.url.as_str(), marker, context)
             .await?
+            .is_some()
         {
             return Ok(Some(target.url.to_string()));
         }
@@ -296,19 +296,21 @@ impl StoredXssScanner {
             req = req.header("Cookie", cookies.as_str());
         }
 
-        let response = req.send().await.map_err(|e| {
-            JackSparrowError::ToolExecutionFailed {
+        let response = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
                 tool: "stored_xss".to_string(),
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
-        let body = response.text().await.map_err(|e| {
-            JackSparrowError::ToolExecutionFailed {
+        let body = response
+            .text()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
                 tool: "stored_xss".to_string(),
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
         if body.contains(marker) {
             Ok(Some(body))
@@ -329,9 +331,10 @@ impl StoredXssScanner {
         for _ in 0..self.max_verifications {
             tokio::time::sleep(Duration::from_millis(self.request_delay)).await;
 
-            if let Some(_) = self
+            if self
                 .check_reflection(target, marker, context)
                 .await?
+                .is_some()
             {
                 continue;
             } else {
@@ -353,7 +356,7 @@ impl StoredXssScanner {
             let last_script_open = before.rfind("<script");
             let last_script_close = before.rfind("</script>");
             if let Some(open) = last_script_open {
-                if last_script_close.map_or(true, |c| c < open) {
+                if last_script_close.is_none_or(|c| c < open) {
                     return PayloadContext::ScriptTag;
                 }
             }
@@ -381,7 +384,7 @@ impl StoredXssScanner {
             let last_style_open = before.rfind("<style");
             let last_style_close = before.rfind("</style>");
             if let Some(open) = last_style_open {
-                if last_style_close.map_or(true, |c| c < open) {
+                if last_style_close.is_none_or(|c| c < open) {
                     return PayloadContext::StyleTag;
                 }
             }
@@ -515,10 +518,7 @@ impl StoredXssScanner {
             )),
             payload: Some(result.payload.clone()),
             pattern: Some(result.payload.clone()),
-            context: Some(format!(
-                "{}. {}",
-                context_desc, persistence_desc
-            )),
+            context: Some(format!("{}. {}", context_desc, persistence_desc)),
         };
         finding.description = format!(
             "A stored XSS vulnerability was found in the '{}' parameter. \
@@ -536,15 +536,18 @@ impl StoredXssScanner {
             persistence_desc,
         );
         finding.cwe_id = Some("CWE-79".to_string());
-        finding.cvss_score = if result.persistent { Some(9.1) } else { Some(6.1) };
-        finding.remediation = format!(
-            "1. Validate and sanitize all user input\n\
+        finding.cvss_score = if result.persistent {
+            Some(9.1)
+        } else {
+            Some(6.1)
+        };
+        finding.remediation = "1. Validate and sanitize all user input\n\
              2. Encode output data appropriately\n\
              3. Use Content-Security-Policy headers\n\
              4. Implement HTTPOnly flags on cookies\n\
              5. Use parameterized queries where applicable\n\
              6. Consider using a template engine with auto-escaping"
-        );
+            .to_string();
         finding.references = vec![
             "https://owasp.org/www-community/attacks/xss/".to_string(),
             "https://cwe.mitre.org/data/definitions/79.html".to_string(),
@@ -559,7 +562,7 @@ impl StoredXssScanner {
 mod tests {
     use super::*;
     use crate::core::scanners::crawl_integration::{ParamType, ScanParam, ScanTarget, TargetType};
-    
+
     use crate::core::crawler::parser::Method;
     use url::Url;
 
@@ -709,10 +712,7 @@ mod tests {
         };
 
         let result = InputTestResult {
-            target: make_test_target(
-                "http://example.com/search",
-                vec![make_test_param("q")],
-            ),
+            target: make_test_target("http://example.com/search", vec![make_test_param("q")]),
             param_name: "q".to_string(),
             payload: "<script>alert('xss')</script>".to_string(),
             reflection_url: "http://example.com/search?q=...".to_string(),

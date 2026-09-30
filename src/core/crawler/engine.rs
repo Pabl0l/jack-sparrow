@@ -59,11 +59,26 @@ pub struct CrawlError {
 /// Events emitted during crawling for progress reporting.
 #[derive(Debug, Clone)]
 pub enum CrawlEvent {
-    PageStarted { url: Url, depth: u32 },
-    PageCompleted { url: Url, status: u16, links: usize, forms: usize },
-    PageFailed { url: Url, error: String },
-    DepthReached { depth: u32 },
-    CrawlComplete { stats: CrawlStats },
+    PageStarted {
+        url: Url,
+        depth: u32,
+    },
+    PageCompleted {
+        url: Url,
+        status: u16,
+        links: usize,
+        forms: usize,
+    },
+    PageFailed {
+        url: Url,
+        error: String,
+    },
+    DepthReached {
+        depth: u32,
+    },
+    CrawlComplete {
+        stats: CrawlStats,
+    },
 }
 
 /// The main crawler engine that orchestrates all components.
@@ -190,7 +205,8 @@ impl CrawlerEngine {
         let start = Instant::now();
 
         // Seed the frontier
-        self.frontier.enqueue(target.clone(), 0, self.config.max_depth + 1);
+        self.frontier
+            .enqueue(target.clone(), 0, self.config.max_depth + 1);
 
         // Spawn workers
         let callback = Arc::new(callback);
@@ -257,15 +273,7 @@ impl CrawlerEngine {
 
             workers.push(tokio::spawn(async move {
                 Self::worker_loop(
-                    frontier,
-                    fetcher,
-                    robots,
-                    limiter,
-                    results,
-                    errors,
-                    stats,
-                    config,
-                    callback,
+                    frontier, fetcher, robots, limiter, results, errors, stats, config, callback,
                 )
                 .await;
             }));
@@ -322,15 +330,27 @@ impl CrawlerEngine {
 
                     // Update stats
                     stats.pages_crawled.fetch_add(1, Ordering::Relaxed);
-                    stats.links_discovered.fetch_add(parsed.links.len(), Ordering::Relaxed);
-                    stats.forms_found.fetch_add(parsed.forms.len(), Ordering::Relaxed);
-                    stats.scripts_found.fetch_add(parsed.scripts.len(), Ordering::Relaxed);
-                    stats.iframes_found.fetch_add(parsed.iframes.len(), Ordering::Relaxed);
-                    stats.embeds_found.fetch_add(parsed.embeds.len(), Ordering::Relaxed);
+                    stats
+                        .links_discovered
+                        .fetch_add(parsed.links.len(), Ordering::Relaxed);
+                    stats
+                        .forms_found
+                        .fetch_add(parsed.forms.len(), Ordering::Relaxed);
+                    stats
+                        .scripts_found
+                        .fetch_add(parsed.scripts.len(), Ordering::Relaxed);
+                    stats
+                        .iframes_found
+                        .fetch_add(parsed.iframes.len(), Ordering::Relaxed);
+                    stats
+                        .embeds_found
+                        .fetch_add(parsed.embeds.len(), Ordering::Relaxed);
                     stats
                         .event_handlers_found
                         .fetch_add(parsed.event_handlers.len(), Ordering::Relaxed);
-                    stats.bytes_downloaded.fetch_add(page.body_size, Ordering::Relaxed);
+                    stats
+                        .bytes_downloaded
+                        .fetch_add(page.body_size, Ordering::Relaxed);
 
                     let depth = request.depth;
                     if depth > stats.depth_reached.load(Ordering::Relaxed) as u32 {

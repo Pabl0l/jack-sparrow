@@ -173,7 +173,10 @@ impl FileUploadScanner {
         let lower = html.to_lowercase();
 
         // Look for file input fields
-        if lower.contains("type=\"file\"") || lower.contains("type='file'") || lower.contains("type=file") {
+        if lower.contains("type=\"file\"")
+            || lower.contains("type='file'")
+            || lower.contains("type=file")
+        {
             // Extract form action
             let action = Self::extract_form_action(html);
 
@@ -247,20 +250,21 @@ impl FileUploadScanner {
             req = req.header("Cookie", cookies.as_str());
         }
 
-        let resp = req.send().await.map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "file-upload".to_string(),
-            message: e.to_string(),
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "file-upload".to_string(),
+                message: e.to_string(),
+            })?;
 
         let status = resp.status().as_u16();
         let body = resp.text().await.unwrap_or_default();
         let body_lower = body.to_lowercase();
 
         // Check if upload was accepted (not rejected)
-        let accepted = status == 200
-            || status == 201
-            || status == 302
-            || (status >= 200 && status < 300);
+        let accepted =
+            status == 200 || status == 201 || status == 302 || (200..300).contains(&status);
 
         let rejected = body_lower.contains("denied")
             || body_lower.contains("forbidden")
@@ -306,7 +310,8 @@ impl FileUploadScanner {
                     6. Use random filenames to prevent direct access"
                     .to_string(),
                 references: vec![
-                    "https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload".to_string(),
+                    "https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload"
+                        .to_string(),
                     "https://cwe.mitre.org/data/definitions/434.html".to_string(),
                     "https://portswigger.net/web-security/file-upload".to_string(),
                 ],
@@ -363,7 +368,8 @@ impl Scanner for FileUploadScanner {
             let upload_url = if form.action.starts_with("http") {
                 form.action.clone()
             } else if form.action.starts_with('/') {
-                let parsed = url::Url::parse(target).map_err(|e| JackSparrowError::InvalidTarget { url: e.to_string() })?;
+                let parsed = url::Url::parse(target)
+                    .map_err(|e| JackSparrowError::InvalidTarget { url: e.to_string() })?;
                 let host_part = match parsed.port() {
                     Some(port) => format!("{}:{}", parsed.host_str().unwrap_or(""), port),
                     None => parsed.host_str().unwrap_or("").to_string(),
@@ -374,10 +380,14 @@ impl Scanner for FileUploadScanner {
             };
 
             // Detect the file input field name (default to "file")
-            let field_name = Self::detect_file_field_name(&html).unwrap_or_else(|| "file".to_string());
+            let field_name =
+                Self::detect_file_field_name(&html).unwrap_or_else(|| "file".to_string());
 
             for test in &tests {
-                if let Some(finding) = self.test_upload(&upload_url, test, &field_name, _context).await? {
+                if let Some(finding) = self
+                    .test_upload(&upload_url, test, &field_name, _context)
+                    .await?
+                {
                     findings.push(finding);
                     break; // One finding per form is enough
                 }
@@ -501,10 +511,14 @@ mod tests {
 
         // Should cover major bypass categories
         assert!(descriptions.iter().any(|d| d.contains("Double extension")));
-        assert!(descriptions.iter().any(|d| d.contains("Content-Type mismatch")));
+        assert!(descriptions
+            .iter()
+            .any(|d| d.contains("Content-Type mismatch")));
         assert!(descriptions.iter().any(|d| d.contains("Null byte")));
         assert!(descriptions.iter().any(|d| d.contains("Case variation")));
-        assert!(descriptions.iter().any(|d| d.contains("Alternative extension")));
+        assert!(descriptions
+            .iter()
+            .any(|d| d.contains("Alternative extension")));
         assert!(descriptions.iter().any(|d| d.contains("Polyglot")));
     }
 
@@ -517,6 +531,9 @@ mod tests {
             .filter(|t| t.severity == Severity::Critical)
             .map(|t| t.description)
             .collect();
-        assert!(!critical.is_empty(), "Should have at least one critical bypass");
+        assert!(
+            !critical.is_empty(),
+            "Should have at least one critical bypass"
+        );
     }
 }

@@ -67,10 +67,13 @@ impl FormInjectionScanner {
         if let Some(ref cookies) = context.cookies {
             req = req.header("Cookie", cookies.as_str());
         }
-        let resp = req.send().await.map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "form-injection".to_string(),
-            message: e.to_string(),
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "form-injection".to_string(),
+                message: e.to_string(),
+            })?;
         let status = resp.status().as_u16();
         let body_text = resp.text().await.unwrap_or_default();
         let elapsed = start.elapsed().as_millis();
@@ -102,10 +105,13 @@ impl FormInjectionScanner {
         if let Some(ref cookies) = context.cookies {
             req = req.header("Cookie", cookies.as_str());
         }
-        let resp = req.send().await.map_err(|e| JackSparrowError::ToolExecutionFailed {
-            tool: "form-injection".to_string(),
-            message: e.to_string(),
-        })?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| JackSparrowError::ToolExecutionFailed {
+                tool: "form-injection".to_string(),
+                message: e.to_string(),
+            })?;
         let status = resp.status().as_u16();
         let body_text = resp.text().await.unwrap_or_default();
         let elapsed = start.elapsed().as_millis();
@@ -151,7 +157,8 @@ impl FormInjectionScanner {
         ];
 
         // Get baseline
-        let baseline_params = Self::build_query_params(&target.params, &param.name, "sparrow_baseline");
+        let baseline_params =
+            Self::build_query_params(&target.params, &param.name, "sparrow_baseline");
         if let Ok((_, baseline, _)) = self.send_get(url, &baseline_params, context).await {
             // Error-based
             for (payload, technique) in &error_payloads {
@@ -160,7 +167,13 @@ impl FormInjectionScanner {
                     if let Some(error_match) = Self::has_sql_error(&resp) {
                         let db = Self::detect_db_type(&resp);
                         return Some(self.make_sqli_finding_get(
-                            param, payload, technique, &error_match, db, url, status,
+                            param,
+                            payload,
+                            technique,
+                            &error_match,
+                            db,
+                            url,
+                            status,
                         ));
                     }
                 }
@@ -173,7 +186,9 @@ impl FormInjectionScanner {
                 self.send_get(url, &true_params, context).await,
                 self.send_get(url, &false_params, context).await,
             ) {
-                if !baseline.is_empty() && !tb.is_empty() && !fb.is_empty()
+                if !baseline.is_empty()
+                    && !tb.is_empty()
+                    && !fb.is_empty()
                     && tb.len() == baseline.len()
                     && tb.len() != fb.len()
                 {
@@ -221,7 +236,7 @@ impl FormInjectionScanner {
                         parameter: Some(param.name.clone()),
                         evidence: Evidence {
                             request: Some(format!("GET {}?{}={}", url, param.name, payload)),
-                            response: Some(format!("Payload reflected in response body")),
+                            response: Some("Payload reflected in response body".to_string()),
                             payload: Some(payload.to_string()),
                             pattern: Some(payload.to_string()),
                             context: Some("GET parameter reflection".to_string()),
@@ -261,13 +276,21 @@ impl FormInjectionScanner {
         ];
 
         // Baseline
-        let baseline_params = Self::build_query_params(&target.params, &param.name, "sparrow_baseline");
-        let baseline_resp = self.send_get(url, &baseline_params, context).await.ok().map(|(_, b, _)| b).unwrap_or_default();
+        let baseline_params =
+            Self::build_query_params(&target.params, &param.name, "sparrow_baseline");
+        let baseline_resp = self
+            .send_get(url, &baseline_params, context)
+            .await
+            .ok()
+            .map(|(_, b, _)| b)
+            .unwrap_or_default();
 
         for (payload, expected, engine) in &payloads {
             let params = Self::build_query_params(&target.params, &param.name, payload);
             if let Ok((_, resp, _)) = self.send_get(url, &params, context).await {
-                if Self::check_ssti_hit(&resp, expected) && !Self::check_ssti_hit(&baseline_resp, expected) {
+                if Self::check_ssti_hit(&resp, expected)
+                    && !Self::check_ssti_hit(&baseline_resp, expected)
+                {
                     return Some(Finding {
                         id: uuid::Uuid::new_v4(),
                         vulnerability_type: VulnerabilityType::Ssti,
@@ -346,9 +369,15 @@ impl FormInjectionScanner {
         let lower = body.to_lowercase();
         if lower.contains("mysql") || lower.contains("mariadb") || lower.contains("mysql_fetch") {
             "MySQL/MariaDB"
-        } else if lower.contains("pg_query") || lower.contains("postgresql") || lower.contains("psql") {
+        } else if lower.contains("pg_query")
+            || lower.contains("postgresql")
+            || lower.contains("psql")
+        {
             "PostgreSQL"
-        } else if lower.contains("microsoft") || lower.contains("sql server") || lower.contains("odbc") {
+        } else if lower.contains("microsoft")
+            || lower.contains("sql server")
+            || lower.contains("odbc")
+        {
             "Microsoft SQL Server"
         } else if lower.contains("ora-") || lower.contains("oracle") {
             "Oracle"
@@ -386,7 +415,15 @@ impl FormInjectionScanner {
                     if let Some(error_match) = Self::has_sql_error(&resp) {
                         let db = Self::detect_db_type(&resp);
                         return Some(self.make_sqli_finding(
-                            target, param, payload, technique, &error_match, db, url, status, &resp,
+                            target,
+                            param,
+                            payload,
+                            technique,
+                            &error_match,
+                            db,
+                            url,
+                            status,
+                            &resp,
                         ));
                     }
                 }
@@ -399,7 +436,9 @@ impl FormInjectionScanner {
                 self.send_post_form(url, &true_body, context).await,
                 self.send_post_form(url, &false_body, context).await,
             ) {
-                if !baseline.is_empty() && !tb.is_empty() && !fb.is_empty()
+                if !baseline.is_empty()
+                    && !tb.is_empty()
+                    && !fb.is_empty()
                     && tb.len() == baseline.len()
                     && tb.len() != fb.len()
                 {
@@ -414,14 +453,21 @@ impl FormInjectionScanner {
                 ("' OR pg_sleep(3)--", 3, "PostgreSQL pg_sleep"),
             ];
             let baseline_url = Self::build_form_body(&target.params, &param.name, "1");
-            if let Ok((_, _, baseline_ms)) = self.send_post_form(url, &baseline_url, context).await {
+            if let Ok((_, _, baseline_ms)) = self.send_post_form(url, &baseline_url, context).await
+            {
                 for (payload, delay, technique) in &time_payloads {
                     let body = Self::build_form_body(&target.params, &param.name, payload);
                     if let Ok((_, _, inject_ms)) = self.send_post_form(url, &body, context).await {
                         let expected_ms = (*delay as u128) * 800;
                         if inject_ms > baseline_ms + expected_ms {
                             return Some(self.make_time_finding(
-                                target, param, payload, technique, url, baseline_ms, inject_ms,
+                                target,
+                                param,
+                                payload,
+                                technique,
+                                url,
+                                baseline_ms,
+                                inject_ms,
                             ));
                         }
                     }
@@ -468,7 +514,7 @@ impl FormInjectionScanner {
                         parameter: Some(param.name.clone()),
                         evidence: Evidence {
                             request: Some(format!("POST {} [{}={}]", url, param.name, payload)),
-                            response: Some(format!("Payload reflected in response body")),
+                            response: Some("Payload reflected in response body".to_string()),
                             payload: Some(payload.to_string()),
                             pattern: Some(payload.to_string()),
                             context: Some("POST body reflection".to_string()),
@@ -509,12 +555,19 @@ impl FormInjectionScanner {
 
         // Baseline
         let baseline_body = Self::build_form_body(&target.params, &param.name, "sparrow_baseline");
-        let baseline_resp = self.send_post_form(url, &baseline_body, context).await.ok().map(|(_, b, _)| b).unwrap_or_default();
+        let baseline_resp = self
+            .send_post_form(url, &baseline_body, context)
+            .await
+            .ok()
+            .map(|(_, b, _)| b)
+            .unwrap_or_default();
 
         for (payload, expected, engine) in &payloads {
             let body = Self::build_form_body(&target.params, &param.name, payload);
             if let Ok((_, resp, _)) = self.send_post_form(url, &body, context).await {
-                if Self::check_ssti_hit(&resp, expected) && !Self::check_ssti_hit(&baseline_resp, expected) {
+                if Self::check_ssti_hit(&resp, expected)
+                    && !Self::check_ssti_hit(&baseline_resp, expected)
+                {
                     return Some(Finding {
                         id: uuid::Uuid::new_v4(),
                         vulnerability_type: VulnerabilityType::Ssti,
@@ -556,7 +609,7 @@ impl FormInjectionScanner {
         if expected == "49" {
             let transformed = body.replace(">", "> ").replace("<", " <");
             let words: Vec<&str> = transformed.split_whitespace().collect();
-            return words.iter().any(|w| *w == "49");
+            return words.contains(&"49");
         }
         if expected == "7777777" {
             return body.contains("7777777");
@@ -567,9 +620,16 @@ impl FormInjectionScanner {
     // ─── Finding Builders ─────────────────────────────────────────
 
     fn make_sqli_finding(
-        &self, _target: &ScanTarget, param: &ScanParam, payload: &str,
-        technique: &str, error_match: &str, db: &str, url: &str,
-        status: u16, _resp: &str,
+        &self,
+        _target: &ScanTarget,
+        param: &ScanParam,
+        payload: &str,
+        technique: &str,
+        error_match: &str,
+        db: &str,
+        url: &str,
+        status: u16,
+        _resp: &str,
     ) -> Finding {
         Finding {
             id: uuid::Uuid::new_v4(),
@@ -603,9 +663,7 @@ impl FormInjectionScanner {
         }
     }
 
-    fn make_bool_finding(
-        &self, _target: &ScanTarget, param: &ScanParam, url: &str,
-    ) -> Finding {
+    fn make_bool_finding(&self, _target: &ScanTarget, param: &ScanParam, url: &str) -> Finding {
         Finding {
             id: uuid::Uuid::new_v4(),
             vulnerability_type: VulnerabilityType::SqlInjection,
@@ -636,15 +694,24 @@ impl FormInjectionScanner {
     }
 
     fn make_time_finding(
-        &self, _target: &ScanTarget, param: &ScanParam, payload: &str,
-        technique: &str, url: &str, baseline_ms: u128, inject_ms: u128,
+        &self,
+        _target: &ScanTarget,
+        param: &ScanParam,
+        payload: &str,
+        technique: &str,
+        url: &str,
+        baseline_ms: u128,
+        inject_ms: u128,
     ) -> Finding {
         Finding {
             id: uuid::Uuid::new_v4(),
             vulnerability_type: VulnerabilityType::SqlInjection,
             severity: Severity::High,
             confidence: Confidence::Likely,
-            title: format!("Time-based blind SQLi ({}) in POST parameter: {}", technique, param.name),
+            title: format!(
+                "Time-based blind SQLi ({}) in POST parameter: {}",
+                technique, param.name
+            ),
             description: format!(
                 "Time-based blind SQL Injection in POST parameter '{}' at {}. \
                  Baseline: {}ms, Injected: {}ms",
@@ -654,7 +721,10 @@ impl FormInjectionScanner {
             parameter: Some(param.name.clone()),
             evidence: Evidence {
                 request: Some(format!("POST {} [{}={}]", url, param.name, payload)),
-                response: Some(format!("Baseline: {}ms, Injected: {}ms", baseline_ms, inject_ms)),
+                response: Some(format!(
+                    "Baseline: {}ms, Injected: {}ms",
+                    baseline_ms, inject_ms
+                )),
                 payload: Some(payload.to_string()),
                 pattern: Some(format!("{}ms delay", inject_ms - baseline_ms)),
                 context: Some(technique.to_string()),
@@ -669,8 +739,13 @@ impl FormInjectionScanner {
     }
 
     fn make_sqli_finding_get(
-        &self, param: &ScanParam, payload: &str,
-        technique: &str, error_match: &str, db: &str, url: &str,
+        &self,
+        param: &ScanParam,
+        payload: &str,
+        technique: &str,
+        error_match: &str,
+        db: &str,
+        url: &str,
         status: u16,
     ) -> Finding {
         Finding {
@@ -705,9 +780,7 @@ impl FormInjectionScanner {
         }
     }
 
-    fn make_bool_finding_get(
-        &self, param: &ScanParam, url: &str,
-    ) -> Finding {
+    fn make_bool_finding_get(&self, param: &ScanParam, url: &str) -> Finding {
         Finding {
             id: uuid::Uuid::new_v4(),
             vulnerability_type: VulnerabilityType::SqlInjection,
@@ -770,10 +843,7 @@ impl FormInjectionScanner {
                 continue;
             }
 
-            let is_get = matches!(
-                target.method,
-                crate::core::crawler::parser::Method::Get
-            );
+            let is_get = matches!(target.method, crate::core::crawler::parser::Method::Get);
 
             for param in &target.params {
                 if param.is_hidden || param.param_type == ParamType::Hidden {
@@ -853,7 +923,10 @@ mod tests {
     fn test_has_sql_error_mssql() {
         let body = "Unclosed quotation mark after the character string microsoft sql server";
         assert!(FormInjectionScanner::has_sql_error(body).is_some());
-        assert_eq!(FormInjectionScanner::detect_db_type(body), "Microsoft SQL Server");
+        assert_eq!(
+            FormInjectionScanner::detect_db_type(body),
+            "Microsoft SQL Server"
+        );
     }
 
     #[test]
@@ -873,12 +946,18 @@ mod tests {
 
     #[test]
     fn test_check_ssti_hit_math() {
-        assert!(FormInjectionScanner::check_ssti_hit("<p>Result: 49</p>", "49"));
+        assert!(FormInjectionScanner::check_ssti_hit(
+            "<p>Result: 49</p>",
+            "49"
+        ));
     }
 
     #[test]
     fn test_check_ssti_no_false_positive() {
-        assert!(!FormInjectionScanner::check_ssti_hit("<p>Result: 149</p>", "49"));
+        assert!(!FormInjectionScanner::check_ssti_hit(
+            "<p>Result: 149</p>",
+            "49"
+        ));
     }
 
     #[test]

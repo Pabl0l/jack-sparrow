@@ -87,16 +87,8 @@ impl SitemapGenerator {
                     url: page.url.to_string(),
                     status: page.status,
                     depth: page.depth,
-                    forms: page
-                        .parsed
-                        .as_ref()
-                        .map(|p| p.forms.len())
-                        .unwrap_or(0),
-                    links: page
-                        .parsed
-                        .as_ref()
-                        .map(|p| p.links.len())
-                        .unwrap_or(0),
+                    forms: page.parsed.as_ref().map(|p| p.forms.len()).unwrap_or(0),
+                    links: page.parsed.as_ref().map(|p| p.links.len()).unwrap_or(0),
                     is_auth,
                 }
             })
@@ -111,7 +103,7 @@ impl SitemapGenerator {
             *depth_stats.entry(entry.depth).or_insert(0) += 1;
         }
 
-        let root = Self::build_tree(&results.pages, &results.target.to_string());
+        let root = Self::build_tree(&results.pages, results.target.as_ref());
 
         Sitemap {
             target: results.target.to_string(),
@@ -149,10 +141,7 @@ impl SitemapGenerator {
 
         for page in sorted_pages {
             let path = page.url.path();
-            let segments: Vec<&str> = path
-                .split('/')
-                .filter(|s| !s.is_empty())
-                .collect();
+            let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
             Self::insert_into_tree(&mut root, &segments, page, 0);
         }
@@ -180,10 +169,7 @@ impl SitemapGenerator {
         let remaining = &segments[1..];
 
         // Find or create child node
-        let child = node
-            .children
-            .iter_mut()
-            .find(|c| c.name == segment);
+        let child = node.children.iter_mut().find(|c| c.name == segment);
 
         if let Some(child) = child {
             Self::insert_into_tree(child, remaining, page, current_depth + 1);
@@ -206,7 +192,10 @@ impl SitemapGenerator {
     pub fn to_xml(sitemap: &Sitemap) -> String {
         let mut xml = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         xml.push_str("<sitemap xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-        xml.push_str(&format!("  <target>{}</target>\n", xml_escape(&sitemap.target)));
+        xml.push_str(&format!(
+            "  <target>{}</target>\n",
+            xml_escape(&sitemap.target)
+        ));
         xml.push_str(&format!("  <pages>{}</pages>\n", sitemap.total_pages));
         xml.push_str(&format!("  <forms>{}</forms>\n", sitemap.total_forms));
         xml.push_str(&format!("  <links>{}</links>\n", sitemap.total_links));
@@ -288,7 +277,10 @@ impl SitemapGenerator {
             String::new()
         };
 
-        output.push_str(&format!("{}{}{} {}{}\n", prefix, connector, node.name, status, forms));
+        output.push_str(&format!(
+            "{}{}{} {}{}\n",
+            prefix, connector, node.name, status, forms
+        ));
 
         let child_prefix = if is_last {
             format!("{}    ", prefix)
@@ -460,12 +452,9 @@ mod tests {
     fn auth_detection_in_urls() {
         let mut results = make_results();
         // Add an auth page
-        results.pages.push(make_page(
-            "http://example.com/login",
-            200,
-            1,
-            1,
-        ));
+        results
+            .pages
+            .push(make_page("http://example.com/login", 200, 1, 1));
         // Mark the form as auth
         if let Some(ref mut page) = results.pages.last_mut() {
             if let Some(ref mut parsed) = page.parsed {

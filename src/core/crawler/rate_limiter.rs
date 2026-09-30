@@ -1,6 +1,6 @@
 use dashmap::DashMap;
-use governor::state::{NotKeyed, InMemoryState};
-use governor::{Quota, RateLimiter as GovernorLimiter, clock::DefaultClock};
+use governor::state::{InMemoryState, NotKeyed};
+use governor::{clock::DefaultClock, Quota, RateLimiter as GovernorLimiter};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;

@@ -3,17 +3,17 @@
 //! These tests verify that the crawler output can be consumed by scanners
 //! and that the entire pipeline works end-to-end.
 
-use jack_sparrow::core::crawler::config::{CrawlerConfig, CrawlScope};
+use jack_sparrow::core::crawler::config::{CrawlScope, CrawlerConfig};
 use jack_sparrow::core::crawler::engine::CrawlResults;
-use jack_sparrow::core::crawler::parser::{Method, ParsedPage, DiscoveredForm, FormInput};
+use jack_sparrow::core::crawler::parser::{DiscoveredForm, FormInput, Method, ParsedPage};
 use jack_sparrow::core::scanners::crawl_integration::{
     CrawlTargetExtractor, ParamType, ScanTarget, TargetType,
 };
 use jack_sparrow::core::scanners::dom_xss::DomXssScanner;
 use jack_sparrow::core::scanners::stored_xss::StoredXssScanner;
 use jack_sparrow::shared::config::JackSparrowConfig;
-use url::Url;
 use std::collections::HashMap;
+use url::Url;
 
 /// Helper to create a test CrawlResults.
 fn make_test_crawl_results() -> CrawlResults {
@@ -77,7 +77,10 @@ fn crawl_results_extract_targets() {
     let results = make_test_crawl_results();
     let targets = CrawlTargetExtractor::extract_targets(&results);
 
-    assert!(!targets.is_empty(), "Should extract targets from crawl results");
+    assert!(
+        !targets.is_empty(),
+        "Should extract targets from crawl results"
+    );
 
     // Should find the form
     let form_targets: Vec<&ScanTarget> = targets
@@ -151,8 +154,10 @@ fn dom_xss_analyzer_works_with_crawl() {
 
     // Verify finding details
     let finding = &findings[0];
-    assert!(finding.severity == jack_sparrow::shared::types::Severity::Critical
-        || finding.severity == jack_sparrow::shared::types::Severity::High);
+    assert!(
+        finding.severity == jack_sparrow::shared::types::Severity::Critical
+            || finding.severity == jack_sparrow::shared::types::Severity::High
+    );
     assert!(finding.source_name == "location.hash");
     assert!(finding.sink_name == "innerHTML");
 }
@@ -166,14 +171,12 @@ fn stored_xss_scanner_analyzes_forms() {
     let target = ScanTarget {
         url: Url::parse("http://example.com/comment").unwrap(),
         method: Method::Post,
-        params: vec![
-            jack_sparrow::core::scanners::crawl_integration::ScanParam {
-                name: "comment".to_string(),
-                param_type: ParamType::Body,
-                value: None,
-                is_hidden: false,
-            },
-        ],
+        params: vec![jack_sparrow::core::scanners::crawl_integration::ScanParam {
+            name: "comment".to_string(),
+            param_type: ParamType::Body,
+            value: None,
+            is_hidden: false,
+        }],
         source_url: Some("http://example.com".to_string()),
         target_type: TargetType::Form,
         depth: 1,

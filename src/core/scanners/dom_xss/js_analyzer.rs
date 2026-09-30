@@ -1,4 +1,4 @@
-use super::sinks::{Sink, SinkPattern, SinkRisk, get_all_sinks};
+use super::sinks::{get_all_sinks, Sink, SinkPattern, SinkRisk};
 use super::sources::{Source, SourceRisk};
 
 /// Analysis result for a JavaScript code block.
@@ -192,8 +192,8 @@ impl Default for JsAnalyzer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::sinks::SinkRisk;
+    use super::*;
 
     #[test]
     fn analyze_simple_js_no_risk() {

@@ -8,7 +8,7 @@ use std::path::Path;
 use std::process::Command;
 
 pub struct SupplyChainScanner {
-	config: JackSparrowConfig,
+    config: JackSparrowConfig,
 }
 
 impl SupplyChainScanner {
@@ -224,12 +224,12 @@ impl Scanner for SupplyChainScanner {
         ScannerType::SupplyChain
     }
 
-	async fn scan(
-		&self,
-		target: &str,
-		config: &JackSparrowConfig,
-		_context: &ScanContext,
-	) -> Result<Vec<Finding>, JackSparrowError> {
+    async fn scan(
+        &self,
+        target: &str,
+        config: &JackSparrowConfig,
+        _context: &ScanContext,
+    ) -> Result<Vec<Finding>, JackSparrowError> {
         let path = Path::new(target);
         let supply_config = &config.scanners.supply_chain;
 
