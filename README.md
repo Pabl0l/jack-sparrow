@@ -1,10 +1,12 @@
 # Jack Sparrow
 
-[![CI](https://github.com/your-repo/jack-sparrow/actions/workflows/ci.yml/badge.svg)](https://github.com/your-repo/jack-sparrow/actions/workflows/ci.yml)
-[![Release](https://github.com/your-repo/jack-sparrow/actions/workflows/release.yml/badge.svg)](https://github.com/your-repo/jack-sparrow/releases)
+[![CI](https://github.com/Pabl0l/jack-sparrow/actions/workflows/ci.yml/badge.svg)](https://github.com/Pabl0l/jack-sparrow/actions/workflows/ci.yml)
+[![Release](https://github.com/Pabl0l/jack-sparrow/actions/workflows/release.yml/badge.svg)](https://github.com/Pabl0l/jack-sparrow/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Professional web pentesting tool that orchestrates proven security tools to detect **30 types of vulnerabilities** from a single CLI.
+
+> **Nuevo aquí?** Lee el [tutorial completo para nuevos usuarios](TUTORIAL.md) — instalación, primer escaneo, autenticación, reportes y laboratorios, paso a paso.
 
 ## Vulnerability Scanners
 
@@ -60,12 +62,12 @@ Professional web pentesting tool that orchestrates proven security tools to dete
 
 ### Install from release
 
-Download the latest binary from [Releases](https://github.com/your-repo/jack-sparrow/releases).
+Download the latest binary from [Releases](https://github.com/Pabl0l/jack-sparrow/releases).
 
 ### Build from source
 
 ```bash
-git clone https://github.com/your-repo/jack-sparrow.git
+git clone https://github.com/Pabl0l/jack-sparrow.git
 cd jack-sparrow
 cargo build --release
 ```

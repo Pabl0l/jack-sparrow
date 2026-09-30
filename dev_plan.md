@@ -41,15 +41,16 @@
 ---
 
 ## Estado Actual
-- **Última actualización:** 2026-09-25
+- **Última actualización:** 2026-09-30
 - **Progreso general:** ~100%
-- **Versión:** 0.5.0
-- **Tests:** ~530 (unit + integration + E2E)
-- **Warnings:** 26 (dead code — unused scanner constructors, bypass payloads, browser fields, extract_client_id)
+- **Versión:** 0.6.1 (tag `v0.6.1` — CI + Release re-lanzados)
+- **Tests:** ~570 (lib 515 + integration 8 + e2e 10 + lab suites)
+- **Warnings:** 0 — gate estricto `RUSTFLAGS=-D warnings` en CI (fmt + clippy + test)
 - **Instalado globalmente:** `sparrow` command via `cargo install`
-- **CI/CD:** GitHub Actions (ci.yml + release.yml)
-- **Bugs corregidos:** Form action `#` fix, cookie passthrough in form discovery, GET form injection support
-- **Siguiente paso:** P5 completado — Release v0.5.0, tests E2E, documentación
+- **CI/CD:** GitHub Actions (ci.yml + release.yml). Release v0.6.1 incluye fix ARM64 (openssl vendored target-dep)
+- **Documentación:** `TUTORIAL.md` (guía completa para nuevos usuarios, enlazada desde README)
+- **Bugs corregidos:** main.rs duplicaba el árbol de módulos (≈50 dead_code), ~35 lints clippy, test e2e esperaba versión 0.4.0, p5_lab_e2e tests anidados dentro de otro test, strings de versión hardcodeados → `env!(CARGO_PKG_VERSION)`
+- **Siguiente paso:** Verificar CI + Release v0.6.1 en verde y publicación de binarios
 
 ---
 

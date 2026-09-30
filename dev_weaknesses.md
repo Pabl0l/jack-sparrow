@@ -2,6 +2,32 @@
 
 ---
 
+## Nuevos Weaknesses (2026-09-30)
+
+### 22. CI gate `RUSTFLAGS=-D warnings` es frágil ante regresiones
+- **Riesgo**: Medio — cualquier warning nuevo (rustc o clippy) rompe 3 jobs de CI a la vez
+- **Probabilidad**: Alta (cualquier PR que añada código puede introducir warnings)
+- **Mitigación**: [X] Base limpia — 0 warnings en los ~85 detectados; lints de estilo con `#![allow]` crate-level documentados en `lib.rs`. `cargo clippy --all-targets` local antes de cada push.
+- **Estado**: [X] Resuelto (2026-09-30), monitoreo continuo
+
+### 23. Release `aarch64-unknown-linux-gnu` depende de openssl vendored
+- **Riesgo**: Medio — el único build de release que fallaba; `openssl-sys` cross no encuentra OpenSSL del target (entra vía `native-tls`: reqwest default-tls + tokio-tungstenite de playwright-rs)
+- **Probabilidad**: Alta sin fix / Baja con fix
+- **Mitigación**: [X] Resuelto — dep condicional `openssl = { features = ["vendored"] }` solo en `cfg(target_os="linux", target_arch="aarch64")`. Dep global (sin cfg) rompía Windows — verificado y descartado.
+- **Estado**: [X] Resuelto (2026-09-30) — pendiente de confirmación en Release v0.6.1
+
+### 24. Causa raíz ARM64 inferida sin logs de Actions
+- **Riesgo**: Bajo — la API de GitHub devuelve 403 para logs de jobs; la diagnóstico se hizo sobre el grafo de `Cargo.lock`, no sobre el log real
+- **Probabilidad**: N/A (limitación de acceso)
+- **Mitigación**: Si el Release v0.6.1 sigue fallando en ARM64, instalar `gh` CLI (autenticado) para leer logs, o reproducir con `cross build --target aarch64-unknown-linux-gnu`.
+
+### 25. Strings de versión unificados con `env!(CARGO_PKG_VERSION)`
+- **Riesgo**: Bajo — el test e2e esperaba 0.4.0 mientras la versión era 0.6.0 (regresión histórica: cada bump rompía el test)
+- **Mitigación**: [X] Resuelto — CLI, `commands::Version`, reportes, User-Agents y test usan `env!`; solo `Cargo.toml` es la fuente de verdad.
+- **Estado**: [X] Resuelto (2026-09-30)
+
+---
+
 ## ✅ Todos los puntos débiles resueltos
 
 ### 1-10. Core Issues (P0-P1)
@@ -96,6 +122,10 @@
 23. ~~Custom wordlists~~ ✅ 2026-09-25 (WordlistManager with file loading, caching, defaults)
 24. ~~Performance profiling~~ ✅ 2026-09-25 (PerfProfiler with per-scanner metrics and optimization suggestions)
 25. ~~Release v0.5.0~~ ✅ 2026-09-25 (Version bump, PerfProfiler integration, E2E tests)
+26. ~~CI fallaba por ~85 warnings bajo `-D warnings`~~ ✅ 2026-09-30 (0 warnings: main→lib, fixes reales + allows crate-level documentados)
+27. ~~Release ARM64 fallaba por openssl-sys cross~~ ✅ 2026-09-30 (openssl vendored condicional a aarch64-linux)
+28. ~~Test e2e de versión hardcodeado (0.4.0)~~ ✅ 2026-09-30 (env!(CARGO_PKG_VERSION) en toda la base)
+29. ~~Tutorial para nuevos usuarios~~ ✅ 2026-09-30 (TUTORIAL.md, 18 secciones, enlazado desde README)
 
 ---
 
@@ -103,6 +133,10 @@
 
 | Fecha | Riesgo | Acción tomada | Resultado |
 |-------|--------|---------------|-----------|
+| 2026-09-30 | CI fallaba por ~85 warnings (`-D warnings`) | main→lib, dead code, lints clippy, allows crate-level | ✅ 0 warnings |
+| 2026-09-30 | Release ARM64: openssl-sys cross sin OpenSSL | dep condicional openssl vendored (aarch64-linux) | ✅ Fix aplicado (v0.6.1) |
+| 2026-09-30 | Test e2e de versión hardcodeado 0.4.0 | `env!(CARGO_PKG_VERSION)` en CLI/reportes/UA/test | ✅ Future-proof |
+| 2026-09-30 | Sin documentación para nuevos usuarios | TUTORIAL.md (18 secciones, ES) enlazado desde README | ✅ Publicado |
 | 2026-09-25 | dalfox XSS sin cookies | BrowserXssScanner with Playwright | ✅ Resuelto |
 | 2026-09-25 | OAuth/OIDC flow testing | OAuthScanner with HTTP probing + HTML analysis | ✅ Resuelto |
 | 2026-09-25 | Rate limit bypass techniques | RateLimitBypassScanner with method/header/URL/cookie bypass | ✅ Resuelto |

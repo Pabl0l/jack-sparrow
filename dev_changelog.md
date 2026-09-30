@@ -2,6 +2,57 @@
 
 ---
 
+## [2026-09-30 20:00] — Fix CI/Release + Release v0.6.1 + Tutorial
+
+### Qué se hizo
+- **CI en verde**: el gate `RUSTFLAGS: -D warnings` del workflow fallaba por warnings de rustc y clippy. Se corrigieron los ~85 warnings restantes:
+  - **`src/main.rs` redeclaraba `mod cli/commands/core/output/shared`** duplicando el árbol de módulos y generando ≈50 warnings `dead_code` solo en el bin → ahora usa el crate lib (`use jack_sparrow::{cli, commands, ...}`). Compilación más rápida y cero duplicación.
+  - Dead code real: campo `config` nunca leído en `AuthBypassScanner` (eliminado; tests actualizados), `WEAK_ALGORITHMS` sin usar en `jwt_bruteforce.rs` (constante eliminada — la lógica inline en `scan()` ya cubre none/HS*), `extract_domain` solo usado por tests (`#[allow(dead_code)]` con doc), `test_jwt_none_algorithm` movido a `#[cfg(test)]`.
+  - Doc comments `///` sueltos al inicio de `dom_xss/sinks.rs` y `sources.rs` → `//!` (lint "empty line after doc comment").
+  - Fixes reales de clippy: loop de line numbers con contador manual → `enumerate` (parser.rs), `starts_with` + index slicing → `strip_prefix` (parser.rs ×2), `sort_by(b cmp a)` → `sort_by_key(Reverse(...))` (robots.rs), `for j in rango` → `.iter().take().skip()` (taint.rs), `if let Some(_) =` → `.is_some()` (stored_xss ×2), `if/else if` con brazos idénticos → condiciones combinadas (tech_fingerprint ×2), `transmute::<_,u64>(0u64)` identidad → `write_u64(0)` (retry.rs — misma semántica sin unsafe), `fn default()` inherent → `impl Default for PlaywrightBrowser`.
+  - Renombres: `Method::from_str` → `Method::parse`, `ReportFormat::from_str` → `ReportFormat::parse` (lint `should_implement_trait`; 13 call sites actualizados).
+  - Allows justificados: crate-level `too_many_arguments` en lib.rs (entry points CLI de 9–29 args), `large_enum_variant` en `Commands` (clap necesita campos planos), `upper_case_acronyms` en `TechType` (CMS/CSS), `vec_init_then_push` en `waf_bypass.rs` (catálogos de payloads secuenciales con comentarios).
+  - Un-nest de 5 tests de `tests/p5_lab_e2e.rs` que estaban accidentalmente anidados dentro de `e2e_form_login_wrong_password_fails` (el `fn` abría en línea 460 y cerraba en 616 envolviendo los demás).
+- **Release ARM64 fix**: el único build fallido de release era `aarch64-unknown-linux-gnu` (openssl-sys cross-compilado sin OpenSSL del target; entra vía `native-tls` de reqwest + `tokio-tungstenite` de playwright-rs). Añadido `[target.'cfg(all(target_os="linux", target_arch="aarch64"))'.dependencies] openssl = { features=["vendored"] }` — solo para ese target (con dep directa global rompía el build en Windows, verificado).
+- **Version 0.6.1**: Cargo.toml bump; todos los strings de versión ahora derivan de `env!(CARGO_PKG_VERSION)` (CLI `#[command(version)]`, `commands::Version`, footers HTML/Markdown de reportes, User-Agents via `concat!`, test e2e — que antes esperaba "0.4.0"). Metadata: `repository` URL real, descripción 26→30 scanners. README: URLs `your-repo` → `Pabl0l`.
+- **`TUTORIAL.md`**: guía completa para nuevos usuarios en español (18 secciones): instalación (3 vías), herramientas externas, primeros escaneos, tabla de los 30 checks, autenticación (cookie/header/login de formulario), flags opt-in, wordlists, grabación de sesiones, config TOML, reportes + CI/CD, laboratorios Docker, interpretación de resultados, troubleshooting, FAQ y buenas prácticas. Enlazada desde el README.
+
+### Decisiones tomadas
+- **main.rs → lib crate** (en vez de `#[allow(dead_code)]` en el bin): elimina la causa raíz (compilación duplicada) y mejora tiempos de build.
+- **`#![allow(clippy::too_many_arguments)]` crate-level** (en vez de 8 atributos sueltos o refactor a structs): los entry points CLI son deliberadamente posicionales; un refactor de `execute_scan(29 args)` a struct tocaría muchos call sites con riesgo alto y cero beneficio funcional.
+- **openssl vendored solo en target aarch64-linux** (en vez de dep global): la dep global rompía `cargo clippy` en Windows (openssl-sys sin instalación de OpenSSL). Verificado con build local.
+- **No reutilizar tag `v0.6.0`** (que ya existía con release fallido) → tag nuevo `v0.6.1` en commit `0126f2d`.
+- **Renombrar `from_str` → `parse`** (en vez de `#[allow]`): 13 call sites, cambio mecánico, deja la API sin confusión con el trait `FromStr`.
+
+### Investigación realizada
+- Causa raíz del fallo ARM64 inferida del grafo de `Cargo.lock` (no hubo acceso a logs de Actions: API devuelve 403 para logs) → openssl-sys vía `native-tls` (reqwest default-tls + tokio-tungstenite de playwright-rs).
+- Verificación local exacta de los 3 jobs de CI: `cargo fmt --check` (0), `RUSTFLAGS="-D warnings" cargo clippy --all-targets --all-features` (0), `cargo test --lib` (515 passed), `--test integration` (8), `--test e2e` (10).
+
+### Resultado
+- Commit `0126f2d` pushado a `main` + tag `v0.6.1` pushado → CI run 36768775652 y Release run 36768784810 lanzados (estado: in_progress al cierre de esta entrada).
+- Cero warnings bajo el gate estricto; test e2e de versión future-proof (`env!`).
+
+### Archivos modificados
+- `src/main.rs` — usa crate lib en vez de redeclarar módulos
+- `src/lib.rs` — module docs + `#![allow(clippy::too_many_arguments)]`
+- `src/cli/mod.rs` — `#[command(version)]`, allow `large_enum_variant`
+- `src/core/scanners/auth_bypass.rs` — campo `config` eliminado, `#[cfg(test)]` en helper, tests ajustados
+- `src/core/scanners/jwt_bruteforce.rs` — `WEAK_ALGORITHMS` eliminada + test obsoleto
+- `src/core/scanners/websocket_security.rs` — allow en `extract_domain`
+- `src/core/scanners/dom_xss/{sinks,sources,taint}.rs` — doc comments, loop iterator
+- `src/core/crawler/{parser,robots}.rs` — enumerate, strip_prefix, Reverse
+- `src/core/scanners/{stored_xss,tech_fingerprint,playwright_browser,waf_bypass}.rs` — lints clippy
+- `src/shared/retry.rs` — transmute → `write_u64(0)`
+- `src/commands/mod.rs`, `src/output/report.rs`, `src/core/engine.rs` — renombres `parse` + versión `env!`
+- `src/core/scanners/{sqli_native,ssrf_native}.rs` — User-Agent `concat!(env!(...))`
+- `tests/e2e/cli_test.rs` — assert de versión con `env!`
+- `tests/p5_lab_e2e.rs` — un-nest de 5 tests
+- `Cargo.toml` — 0.6.1, repository URL, descripción 30, openssl vendored (target aarch64-linux)
+- `README.md` — URLs reales, enlace a TUTORIAL.md, UA 0.6.1
+- `TUTORIAL.md` — NEW (guía completa ES)
+
+---
+
 ## [2026-09-25 17:00] — P5: Advanced Security Scanners
 
 ### Qué se hizo
