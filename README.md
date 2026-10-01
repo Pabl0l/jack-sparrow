@@ -6,7 +6,7 @@
 
 Professional web pentesting tool that orchestrates proven security tools to detect **30 types of vulnerabilities** from a single CLI.
 
-> **Nuevo aquí?** Lee el [tutorial completo para nuevos usuarios](TUTORIAL.md) — instalación, primer escaneo, autenticación, reportes y laboratorios, paso a paso.
+> **Nuevo aquí?** Instala y ejecuta `sparrow tutorial` — se abre en tu navegador la [guía interactiva estilo terminal](https://github.com/Pabl0l/jack-sparrow/tree/main/docs/tutorial). También está el [tutorial completo en Markdown](TUTORIAL.md) — instalación, primer escaneo, autenticación, reportes y laboratorios, paso a paso.
 
 ## Vulnerability Scanners
 
@@ -77,6 +77,19 @@ cargo build --release
 ```bash
 cargo install --path .
 ```
+
+### Open the interactive tutorial
+
+Right after installing, open the built-in HTML tutorial (a terminal-style guide that works offline):
+
+```bash
+sparrow tutorial
+# → opens sparrow-tutorial.html in your default browser
+
+sparrow tutorial --save tutorial.html   # just write the file (no browser)
+```
+
+The source lives in [`docs/tutorial/`](docs/tutorial).
 
 ### Install external tools
 

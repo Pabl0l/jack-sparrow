@@ -41,16 +41,16 @@
 ---
 
 ## Estado Actual
-- **Última actualización:** 2026-09-30
+- **Última actualización:** 2026-10-01
 - **Progreso general:** ~100%
-- **Versión:** 0.6.1 (tag `v0.6.1` — CI + Release re-lanzados)
-- **Tests:** ~570 (lib 515 + integration 8 + e2e 10 + lab suites)
+- **Versión:** 0.6.1 (tag `v0.6.1` — CI + Release verificados en verde)
+- **Tests:** ~575 (lib 517 + integration 8 + e2e 12 + lab suites)
 - **Warnings:** 0 — gate estricto `RUSTFLAGS=-D warnings` en CI (fmt + clippy + test)
 - **Instalado globalmente:** `sparrow` command via `cargo install`
 - **CI/CD:** GitHub Actions (ci.yml + release.yml). Release v0.6.1 incluye fix ARM64 (openssl vendored target-dep)
-- **Documentación:** `TUTORIAL.md` (guía completa para nuevos usuarios, enlazada desde README)
+- **Documentación:** `TUTORIAL.md` (Markdown) + `docs/tutorial/` (tutorial HTML interactivo estilo terminal, embebido en el binario vía `sparrow tutorial`)
 - **Bugs corregidos:** main.rs duplicaba el árbol de módulos (≈50 dead_code), ~35 lints clippy, test e2e esperaba versión 0.4.0, p5_lab_e2e tests anidados dentro de otro test, strings de versión hardcodeados → `env!(CARGO_PKG_VERSION)`
-- **Siguiente paso:** Verificar CI + Release v0.6.1 en verde y publicación de binarios
+- **Siguiente paso:** commit + push para verificar CI con `sparrow tutorial`; posibles mejoras al tutorial (GitHub Pages)
 
 ---
 
@@ -196,6 +196,18 @@
 - Slowest/fastest scanner identification
 - Optimization suggestions (slow scanners, low throughput, high error rates)
 
+### Módulo 34: Tutorial HTML interactivo (`docs/tutorial/` + `src/commands/tutorial.rs`)
+- **Descripción:** Tutorial estilo terminal (estética Matrix del portafolio) basado en `TUTORIAL.md`; comando `sparrow tutorial` lo ensambla en un HTML autocontenido y lo abre en el navegador (`open` crate). `--save <ruta>` solo escribe el fichero (CI/archivado).
+- **Dependencias:** `open = "5"`, `include_str!` de `docs/tutorial/{index.html,css,js}`
+- **Estado:** [X] Completado
+- **Tasks:**
+  - [X] Sitio (index + css + js) movido al repo en `docs/tutorial/`
+  - [X] Subcomando `Tutorial { save }` en CLI + dispatch
+  - [X] Ensamblado autocontenido (CSS/JS inline) sin build step
+  - [X] Banner oficial del CLI (`print_banner`)
+  - [X] Tests: 2 unitarios (assemble) + 2 e2e (help, save)
+  - [X] Docs: README + TUTORIAL.md (flujo post-instalación)
+
 ---
 
 ## P3 — Largo Plazo
@@ -273,6 +285,10 @@
 
 ## Comandos de Uso
 ```bash
+# Tutorial interactivo HTML (post-instalación — se abre en el navegador)
+sparrow tutorial
+sparrow tutorial --save tutorial.html   # solo guarda, sin abrir navegador
+
 # Scan completo
 sparrow scan -t "http://target.com" --checks all
 

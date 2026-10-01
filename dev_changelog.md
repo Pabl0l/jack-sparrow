@@ -2,6 +2,45 @@
 
 ---
 
+## [2026-10-01 06:15] — Tutorial HTML interno + comando `sparrow tutorial`
+
+### Qué se hizo
+- El tutorial interactivo estilo terminal (creado primero como proyecto suelto en `/PROYECTOS/sparrow-tutorial`) pasó a ser **interno del repo**: `docs/tutorial/` (`index.html`, `css/style.css`, `js/content.js`, `js/terminal.js`, `README.md`).
+- Nuevo subcomando **`sparrow tutorial`** (post-instalación): ensambla el sitio en un **único HTML autocontenido** (`include_str!` de index+css+js con `replace` de las etiquetas), lo escribe en el directorio temporal y lo abre en el navegador por defecto. Flag `--save <ruta>`: solo escribe el fichero (sin abrir navegador — pensado para CI/archivado).
+- **Banner**: reemplazado el ASCII art inventado por el **oficial del CLI** (`src/main.rs → print_banner()`), a petición del usuario.
+- Docs: README (sección "Open the interactive tutorial" + "Nuevo aquí?" actualizado), `TUTORIAL.md` (sección 3 paso 5: `sparrow tutorial`; sección 5: es el comando 1 de "Primeros pasos"), `docs/tutorial/README.md` reescrito.
+- Dependencia nueva: `open = "5"` (crate maduro multiplataforma para abrir ficheros/navegador).
+
+### Por qué (Justificación)
+- Petición del usuario: "necesito que este html sea algo interno del proyecto sparrow… que sea el tutorial después de instalar el programa" → el HTML vive en el repo y el flujo post-instalación es `sparrow tutorial`.
+
+### Decisiones tomadas
+- **Ensamblado en runtime con `include_str!` + `replace`** vs (a) script de build a fichero único → sin duplicar fuentes ni tooling; (b) archivo único mantenido a mano → se pierde la edición separada. `docs/tutorial/index.html` sigue funcionando directo en el navegador (rutas relativas).
+- **`open` crate** vs `Command::new("cmd"/"xdg-open"/"open")` a mano → solución madura, pure Rust, cubre Windows/macOS/Linux sin código por plataforma.
+- **`--save` no abre el navegador** → el e2e test puede validar el HTML en CI sin lanzar navegador.
+- **Sitio standalone eliminado** de `/PROYECTOS/sparrow-tutorial` (todo su contenido vive ahora en `docs/tutorial/`; sus dev_*.md se integraron aquí).
+
+### Investigación realizada
+- Patrón de comandos existente (`Commands` enum + `commands::execute`) y `JackSparrowError::Io(#[from])` para integración limpia.
+- Tests e2e existentes (`tests/e2e/cli_test.rs`, patrón assert_cmd) para los 2 tests nuevos.
+
+### Resultado
+- `cargo fmt --check` (0), `RUSTFLAGS=-D warnings cargo clippy --all-targets --all-features` (0 warnings), tests: **lib 517 ✓** (2 nuevos), **integration 8 ✓**, **e2e 12 ✓** (2 nuevos: `tutorial --help`, `tutorial --save`).
+- Manual: `sparrow tutorial --save` → HTML autocontenido de 44 KB cargado con Playwright (0 errores de consola, comandos operativos); `sparrow tutorial` → escribe `%TEMP%\sparrow-tutorial.html` y abre el navegador.
+- **Pendiente**: los cambios NO están commiteados (no se pidió) — verificar CI en el próximo push.
+
+### Archivos modificados
+- `docs/tutorial/**` — sitio movido aquí (5 ficheros)
+- `src/commands/tutorial.rs` — nuevo (assemble + execute_tutorial + 2 tests unitarios)
+- `src/commands/mod.rs` — `mod tutorial;` + dispatch `Commands::Tutorial`
+- `src/cli/mod.rs` — variante `Tutorial { save: Option<PathBuf> }`
+- `Cargo.toml` — `open = "5"`
+- `tests/e2e/cli_test.rs` — +2 tests
+- `README.md`, `TUTORIAL.md` — flujo post-instalación `sparrow tutorial`
+- `/PROYECTOS/sparrow-tutorial` — eliminado (movido al repo)
+
+---
+
 ## [2026-09-30 20:00] — Fix CI/Release + Release v0.6.1 + Tutorial
 
 ### Qué se hizo

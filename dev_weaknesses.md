@@ -2,6 +2,28 @@
 
 ---
 
+## Nuevos Weaknesses (2026-10-01)
+
+### 26. `docs/tutorial/js/content.js` puede desincronizarse con `TUTORIAL.md`
+- **Riesgo**: Medio — el tutorial HTML es un resumen tipado del Markdown; si TUTORIAL.md cambia, el sitio queda viejo
+- **Probabilidad**: Media (el tutorial ya existe y se completó; cambios futuros puntuales)
+- **Mitigación**: [X] Enlace permanente al TUTORIAL.md fuente (footer + sección `intro`); README de `docs/tutorial/` documenta la regla "si cambia el tutorial → actualizar content.js". [ ] Considerar generador desde Markdown si el tutorial crece.
+- **Estado**: [~] Monitorizado
+
+### 27. Ensamblado del tutorial depende de etiquetas exactas en `index.html`
+- **Riesgo**: Bajo — `tutorial.rs` hace `replace` de `<link … style.css>` y los dos `<script src>`; si se editan esas etiquetas, el HTML autocontenido saldría sin CSS/JS
+- **Probabilidad**: Baja (los tests unitarios `test_assemble_inlines_assets` y e2e `test_tutorial_save_writes_standalone_html` fallan si ocurre)
+- **Mitigación**: [X] Doble red de tests (unit + e2e) sobre el HTML ensamblado
+- **Estado**: [X] Resuelto
+
+### 28. El tutorial offline depende de Google Fonts (requiere red)
+- **Riesgo**: Leve — sin conexión las fuentes VT323/JetBrains Mono caen a Courier New (cambia la estética, la funcionalidad no)
+- **Probabilidad**: Media (usuarios offline tras instalar)
+- **Mitigación**: [~] Fallbacks en CSS (`'VT323', 'Courier New', monospace`); si importa, auto-hostear woff2 en `docs/tutorial/fonts/` (+ ~80 KB al binario)
+- **Estado**: [~] Aceptado por ahora
+
+---
+
 ## Nuevos Weaknesses (2026-09-30)
 
 ### 22. CI gate `RUSTFLAGS=-D warnings` es frágil ante regresiones

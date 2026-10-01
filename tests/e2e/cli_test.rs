@@ -104,6 +104,40 @@ fn test_record_help() {
 }
 
 #[test]
+fn test_tutorial_help() {
+    Command::cargo_bin("sparrow")
+        .unwrap()
+        .args(["tutorial", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--save"))
+        .stdout(predicate::str::contains("tutorial"));
+}
+
+#[test]
+fn test_tutorial_save_writes_standalone_html() {
+    let temp_dir = TempDir::new().unwrap();
+    let out = temp_dir.path().join("tutorial.html");
+
+    Command::cargo_bin("sparrow")
+        .unwrap()
+        .args(["tutorial", "--save"])
+        .arg(&out)
+        .assert()
+        .success();
+
+    assert!(out.exists());
+    let content = fs::read_to_string(&out).unwrap();
+
+    // Autocontenido: CSS y JS embebidos, sin referencias a ficheros externos.
+    assert!(content.contains("ADVANCED PENTEST TOOL"));
+    assert!(content.contains("COMMAND_NAMES"));
+    assert!(content.contains("--neon: #39ff14"));
+    assert!(!content.contains(r#"href="css/style.css""#));
+    assert!(!content.contains(r#"src="js/terminal.js""#));
+}
+
+#[test]
 fn test_init_config_default_path() {
     let temp_dir = TempDir::new().unwrap();
 

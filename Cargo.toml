@@ -17,6 +17,9 @@ path = "src/main.rs"
 # CLI
 clap = { version = "4", features = ["derive"] }
 
+# Open the interactive tutorial in the browser (`sparrow tutorial`)
+open = "5"
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 

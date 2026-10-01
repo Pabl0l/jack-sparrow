@@ -118,6 +118,14 @@ sparrow version
 # Jack Sparrow 0.6.1
 ```
 
+5. Abre el tutorial interactivo (recomendado justo después de instalar):
+
+```bash
+sparrow tutorial
+# → se abre en tu navegador el tutorial HTML autocontenido (sin red)
+# Alternativa: sparrow tutorial --save tutorial.html
+```
+
 ### Opción B — Compilar desde código
 
 ```bash
@@ -201,22 +209,26 @@ cargo install cargo-audit
 
 ## 5. Primeros pasos
 
-Cinco comandos para familiarizarte:
+Seis comandos para familiarizarte:
 
 ```bash
-# 1. Versión instalada
+# 1. Tutorial interactivo (empieza aquí si es tu primera vez)
+#    Abre en el navegador una guía estilo terminal con todo el tutorial
+sparrow tutorial
+
+# 2. Versión instalada
 sparrow version
 
-# 2. Ayuda general
+# 3. Ayuda general
 sparrow --help
 
-# 3. Ayuda específica del escaneo (lista todos los flags)
+# 4. Ayuda específica del escaneo (lista todos los flags)
 sparrow scan --help
 
-# 4. Verificar herramientas externas
+# 5. Verificar herramientas externas
 sparrow check-tools
 
-# 5. Generar un archivo de configuración por defecto
+# 6. Generar un archivo de configuración por defecto
 sparrow init-config --output jack-sparrow.toml
 ```
 

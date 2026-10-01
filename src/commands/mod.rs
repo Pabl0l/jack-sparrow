@@ -7,6 +7,8 @@ use crate::shared::error::JackSparrowError;
 use colored::Colorize;
 use std::path::PathBuf;
 
+mod tutorial;
+
 /// Execute a CLI command
 pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
     // Load config
@@ -97,6 +99,7 @@ pub async fn execute(cli: Cli) -> Result<(), JackSparrowError> {
             println!("Jack Sparrow {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
+        Commands::Tutorial { save } => tutorial::execute_tutorial(save.as_deref()),
     }
 }
 

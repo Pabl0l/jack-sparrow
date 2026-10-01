@@ -183,4 +183,11 @@ pub enum Commands {
 
     /// Show version information
     Version,
+
+    /// Open the interactive HTML tutorial (start here after installing)
+    Tutorial {
+        /// Write the tutorial HTML to this path instead of opening a browser
+        #[arg(short, long)]
+        save: Option<PathBuf>,
+    },
 }
