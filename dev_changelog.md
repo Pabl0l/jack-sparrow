@@ -31,6 +31,10 @@
 - `dev_weaknesses.md` - #29/#30/#32 → Resuelto, acciones 32/33 ✅, historial
 - `dev_plan.md` - cobertura y siguiente paso
 
+### Resultado (post-push)
+- Commits `30d09aa` (Modo Misión + blindaje) y `693146f` (fix: `docs/tutorial/index.html` estaba fuera del repo por la regla `*.html` de `.gitignore` → un clone limpio no compilaba por el `include_str!` de `tutorial.rs`).
+- CI en `main` → **verde** en los 6 jobs (Rustfmt, Clippy, Test ubuntu/windows —incluyendo `mission_consistency` y el test Node—, Build Release ubuntu/windows).
+
 ---
 
 ## [2026-10-01 11:30] — Modo Misión: tutorial con 12 niveles jugables

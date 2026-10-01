@@ -50,7 +50,7 @@
 - **CI/CD:** GitHub Actions (ci.yml + release.yml). Release v0.6.1 incluye fix ARM64 (openssl vendored target-dep)
 - **Documentación:** `TUTORIAL.md` (Markdown) + `docs/tutorial/` (tutorial HTML interactivo estilo terminal con **Modo Misión** de 12 niveles, embebido en el binario vía `sparrow tutorial`)
 - **Bugs corregidos:** main.rs duplicaba el árbol de módulos (≈50 dead_code), ~35 lints clippy, test e2e esperaba versión 0.4.0, p5_lab_e2e tests anidados dentro de otro test, strings de versión hardcodeados → `env!(CARGO_PKG_VERSION)`
-- **Siguiente paso:** commit + push (Modo Misión + blindaje #29/#30/#32) y verificar CI en verde; posibles mejoras (GitHub Pages, sonido/animación al subir de nivel)
+- **Siguiente paso:** CI verde con Modo Misión + tests de consistencia (2026-10-01, run 36900168317); mejoras opcionales (GitHub Pages, sonido/animación al subir de nivel)
 
 ---
 

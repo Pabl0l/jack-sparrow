@@ -52,6 +52,12 @@
 - **Mitigación**: [X] sin flag no hay API; aceptado como coste de tener tests deterministas
 - **Estado**: [X] Aceptado
 
+### 34. `.gitignore` con `*.html` excluía `docs/tutorial/index.html`
+- **Riesgo**: Alto (materializado) — la regla `*.html` (reports de escaneo) impedía versionar el HTML del tutorial que `tutorial.rs` embebe con `include_str!`: el push del tutorial (52834cd) **rompió el CI** y un clone limpio no compilaba
+- **Probabilidad**: Alta mientras exista la regla global
+- **Mitigación**: [X] negación `!docs/tutorial/index.html` en `.gitignore` + archivo versionado (693146f); [X] CI verde verificado en el run de `693146f`
+- **Estado**: [X] Resuelto (2026-10-01)
+
 ---
 
 ## Nuevos Weaknesses (2026-09-30)
@@ -190,6 +196,7 @@
 | Fecha | Riesgo | Acción tomada | Resultado |
 |-------|--------|---------------|-----------|
 | 2026-10-01 | Retos de MISSIONS podían desincronizarse de la CLI (#29) | `tests/mission_consistency.rs` cruza retos ↔ `parse_checks`/`cli/mod.rs`/`Makefile` | ✅ 2 tests en CI |
+| 2026-10-01 | `*.html` excluía `docs/tutorial/index.html` del repo (#34) | negación en `.gitignore` + archivo versionado | ✅ CI verde (run 36900168317) |
 | 2026-10-01 | Sin aviso si `localStorage` falla (#30) | probe de escritura en `mission start` con warn | ✅ Resuelto |
 | 2026-10-01 | Tests JS del juego fuera del CI (#32) | steps Node + `mission_consistency` en job `test` | ✅ 25 aserciones en CI |
 | 2026-10-01 | Tutorial pasivo, poco retención | Modo Misión: 12 niveles, validador estricto, XP/estrellas, localStorage | ✅ 25 aserciones + prueba Playwright |
