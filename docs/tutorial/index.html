@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sparrow-tutorial — Tutorial terminal de Jack Sparrow 🏴‍☠️</title>
+  <meta name="description" content="Tutorial interactivo estilo terminal de Jack Sparrow, el orquestador de escaneos de seguridad web. 30 scanners, laboratorios Docker, reportes y más.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏴‍☠️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="rain" aria-hidden="true"></canvas>
+  <div class="crt" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#">🏴‍☠️ sparrow-tutorial<span class="sh">.sh</span></a>
+    <nav class="chips" aria-label="Secciones del tutorial">
+      <button data-cmd="mission">mission</button>
+      <button data-cmd="help">help</button>
+      <button data-cmd="install">install</button>
+      <button data-cmd="scan">scan</button>
+      <button data-cmd="checks">checks</button>
+      <button data-cmd="auth">auth</button>
+      <button data-cmd="advanced">advanced</button>
+      <button data-cmd="reports">reports</button>
+      <button data-cmd="labs">labs</button>
+      <button data-cmd="faq">faq</button>
+      <button data-cmd="best">best</button>
+    </nav>
+  </header>
+
+  <main class="terminal" id="terminal">
+    <div class="term-head">
+      <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+      <span class="term-title">visitor@sparrow: ~ — sparrow-tutorial 1.0</span>
+    </div>
+
+    <div class="term-body" id="output" role="log" aria-live="polite"></div>
+
+    <form class="prompt" id="promptForm" autocomplete="off">
+      <span class="ps1"><span class="u">visitor@sparrow</span>:<span class="p">~</span>$</span>
+      <input id="cmdInput" type="text" aria-label="Escribe un comando" spellcheck="false" autocapitalize="off">
+      <span class="cursor" aria-hidden="true"></span>
+    </form>
+  </main>
+
+  <footer class="foot">
+    <span>fuente: <a href="https://github.com/Pabl0l/jack-sparrow/blob/main/TUTORIAL.md" target="_blank" rel="noopener">TUTORIAL.md</a></span>
+    <span class="sep">·</span>
+    <span><a href="https://github.com/Pabl0l/jack-sparrow" target="_blank" rel="noopener">Pabl0l/jack-sparrow</a> v0.6.1</span>
+    <span class="sep">·</span>
+    <span>Pablo Olivera</span>
+  </footer>
+
+  <script src="js/content.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/terminal.js"></script>
+</body>
+</html>

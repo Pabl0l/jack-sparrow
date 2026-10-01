@@ -23,6 +23,8 @@ lab/lab/sqlmap/
 reports/
 findings.json
 *.html
+# …pero el tutorial del repo sí es fuente (lo embebe tutorial.rs)
+!docs/tutorial/index.html
 
 # Session files
 session.har
