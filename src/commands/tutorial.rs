@@ -11,6 +11,7 @@ use std::path::Path;
 const INDEX: &str = include_str!("../../docs/tutorial/index.html");
 const CSS: &str = include_str!("../../docs/tutorial/css/style.css");
 const CONTENT_JS: &str = include_str!("../../docs/tutorial/js/content.js");
+const GAME_JS: &str = include_str!("../../docs/tutorial/js/game.js");
 const TERMINAL_JS: &str = include_str!("../../docs/tutorial/js/terminal.js");
 
 /// Ensambla el tutorial en un único HTML autocontenido (inline de CSS y JS).
@@ -23,6 +24,10 @@ pub fn assemble() -> String {
         .replace(
             r#"<script src="js/content.js"></script>"#,
             &format!("<script>\n{CONTENT_JS}\n</script>"),
+        )
+        .replace(
+            r#"<script src="js/game.js"></script>"#,
+            &format!("<script>\n{GAME_JS}\n</script>"),
         )
         .replace(
             r#"<script src="js/terminal.js"></script>"#,
@@ -81,6 +86,16 @@ mod tests {
         assert!(page.contains("COMMAND_NAMES"));
         assert!(!page.contains(r#"href="css/style.css""#));
         assert!(!page.contains(r#"src="js/terminal.js""#));
+    }
+
+    #[test]
+    fn test_assemble_inlines_game_engine() {
+        let page = assemble();
+        // El motor del modo misión (niveles) va inline y sin ficheros externos.
+        assert!(!page.contains(r#"src="js/game.js""#));
+        assert!(page.contains("const MISSIONS"));
+        assert!(page.contains("sparrow-mission-v1"));
+        assert!(page.contains("mission start"));
     }
 
     #[test]

@@ -49,6 +49,14 @@ jobs:
         run: cargo test --test integration
       - name: Run E2E CLI tests
         run: cargo test --test e2e
+      - name: Mission Mode consistency (retos ↔ CLI)
+        run: cargo test --test mission_consistency
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Mission Mode game tests
+        run: node docs/tutorial/tests/game.test.js
 
   build:
     name: Build Release (${{ matrix.os }})

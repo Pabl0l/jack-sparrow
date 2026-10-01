@@ -44,13 +44,13 @@
 - **Última actualización:** 2026-10-01
 - **Progreso general:** ~100%
 - **Versión:** 0.6.1 (tag `v0.6.1` — CI + Release verificados en verde)
-- **Tests:** ~575 (lib 517 + integration 8 + e2e 12 + lab suites)
+- **Tests:** ~578 (lib 518 + integration 8 + e2e 12 + mission_consistency 2 + lab suites) + 25 aserciones JS (`node docs/tutorial/tests/game.test.js`) — ambos, el test de consistencia y el test JS, corren en CI
 - **Warnings:** 0 — gate estricto `RUSTFLAGS=-D warnings` en CI (fmt + clippy + test)
 - **Instalado globalmente:** `sparrow` command via `cargo install`
 - **CI/CD:** GitHub Actions (ci.yml + release.yml). Release v0.6.1 incluye fix ARM64 (openssl vendored target-dep)
-- **Documentación:** `TUTORIAL.md` (Markdown) + `docs/tutorial/` (tutorial HTML interactivo estilo terminal, embebido en el binario vía `sparrow tutorial`)
+- **Documentación:** `TUTORIAL.md` (Markdown) + `docs/tutorial/` (tutorial HTML interactivo estilo terminal con **Modo Misión** de 12 niveles, embebido en el binario vía `sparrow tutorial`)
 - **Bugs corregidos:** main.rs duplicaba el árbol de módulos (≈50 dead_code), ~35 lints clippy, test e2e esperaba versión 0.4.0, p5_lab_e2e tests anidados dentro de otro test, strings de versión hardcodeados → `env!(CARGO_PKG_VERSION)`
-- **Siguiente paso:** commit + push para verificar CI con `sparrow tutorial`; posibles mejoras al tutorial (GitHub Pages)
+- **Siguiente paso:** commit + push (Modo Misión + blindaje #29/#30/#32) y verificar CI en verde; posibles mejoras (GitHub Pages, sonido/animación al subir de nivel)
 
 ---
 
@@ -208,6 +208,22 @@
   - [X] Tests: 2 unitarios (assemble) + 2 e2e (help, save)
   - [X] Docs: README + TUTORIAL.md (flujo post-instalación)
 
+### Módulo 35: Modo Misión — juego de niveles (`docs/tutorial/js/game.js`)
+- **Descripción:** Gamificación del tutorial: 12 niveles donde el usuario recibe un objetivo (URL + alcance) y debe tipear el comando real de `sparrow` con la sintaxis correcta. Validador estricto (prefijo, flags, valores, comillas obligatorias con espacios, conjunto exacto de `--checks` con orden libre), XP/estrellas/rangos, HUD y progreso persistente.
+- **Dependencias:** ninguna (JS puro; `MISSIONS` en `content.js`, motor en `game.js`)
+- **Estado:** [X] Completado
+- **Tasks:**
+  - [X] `game.js`: PRNG mulberry32 con semilla por partida, tokenizador con comillas/comentarios, validador de specs, XP/estrellas/rangos, `localStorage`
+  - [X] `content.js`: 12 niveles × 4-12 retos (3 por nivel elegidos por semilla) + portada `mission` + help
+  - [X] `terminal.js`: enrutado (`mission*`, `hint`, `rank`, `abort`, `sparrow …`, `make …`) + restore en boot
+  - [X] `tutorial.rs`: inline de `game.js` + test `test_assemble_inlines_game_engine`
+  - [X] Tests: `docs/tutorial/tests/game.test.js` (25 aserciones, `node`, sin deps)
+  - [X] Test de consistencia retos ↔ CLI: `tests/mission_consistency.rs` (keywords `--checks` ↔ `parse_checks`, flags/subcomandos ↔ `cli/mod.rs`, pares keyword↔flag, objetivos `Makefile`) + red de seguridad anti-regex-vacío
+  - [X] CI: steps en job `test` → `cargo test --test mission_consistency` + Node 20 + `node docs/tutorial/tests/game.test.js`
+  - [X] `storageOk()`: aviso en `mission start` si `localStorage` no permite persistir (#30)
+  - [X] Verificación manual con Playwright (HTML ensamblado: start, hint, acierto, error, restore)
+  - [X] Docs: README, TUTORIAL.md, `docs/tutorial/README.md`
+
 ---
 
 ## P3 — Largo Plazo
@@ -288,6 +304,9 @@
 # Tutorial interactivo HTML (post-instalación — se abre en el navegador)
 sparrow tutorial
 sparrow tutorial --save tutorial.html   # solo guarda, sin abrir navegador
+
+# Modo Misión (dentro del tutorial): 12 niveles jugables
+#   mission start · mission status · hint · rank · abort
 
 # Scan completo
 sparrow scan -t "http://target.com" --checks all

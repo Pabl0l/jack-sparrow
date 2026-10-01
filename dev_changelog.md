@@ -2,6 +2,86 @@
 
 ---
 
+## [2026-10-01 13:05] — Endurecimiento de puntos débiles del Modo Misión (#29, #30, #32)
+
+### Qué se hizo
+- **`tests/mission_consistency.rs` (nuevo, 2 tests)** — cierra el punto débil #29: extrae de `MISSIONS` las keywords de `--checks`, los flags (`names`, `tokens`, `alts`), los subcomandos y los pares `[keyword, --flag]` (nivel 9 + tablas), y los cruza con las fuentes de verdad reales: `parse_checks` (`src/core/engine.rs`), campos/`#[arg(short)]`/`enum Commands` (`src/cli/mod.rs`) y objetivos del `Makefile`. Incluye "redes de seguridad" (`assert!(>= N)`) para que un regex que deje de casar no pueda dejar el test en vacío.
+- **`ci.yml`** — cierra #32: el job `test` ejecuta ahora `cargo test --test mission_consistency` y `node docs/tutorial/tests/game.test.js` (con `actions/setup-node@v4`, Node 20).
+- **`game.js`** — cierra #30: `storageOk()` hace un probe de escritura en `localStorage`; `mission start` muestra un `warn` si el navegador no permite persistir (modo incógnito, cuotas, cookies bloqueadas).
+
+### Por qué (Justificación)
+- Los retos enseñan sintaxis real: si la CLI renombra un flag o elimina una keyword, el jugador "fallaría" un comando válido → ahora el test falla primero en CI.
+- Los tests del juego eran solo locales: una regresión en `game.js`/`content.js` habría pasado el CI (que solo validaba Rust).
+
+### Decisiones tomadas
+- **Test en Rust leyendo las fuentes con `fs::read_to_string(CARGO_MANIFEST_DIR)`** → Elegida porque corre en el CI existente (ya compila Rust) y no inyecta strings de test en el binario; descartado `include_str!` por engordar el binario y descartado un test Node adicional porque el cruce necesita los match arms de `parse_checks`.
+- **Regex sobre las fuentes en vez de ejecutar la CLI** → descartado `sparrow scan --checks …` como validación porque haría peticiones de red reales; los match arms de `parse_checks` son la fuente de verdad y el test falla con mensaje accionable.
+- **Umbrales de extracción (`>= 10/12/15/15`)** → para que un cambio de formato en `content.js` rompa el test en lugar de invalidarlo silenciosamente.
+
+### Investigación realizada
+- Revisión de `src/cli/mod.rs`: los campos de los variantes de enum **no** llevan `pub` (las regex iniciales solo casaban structs y fallaron en falso); el flag `--help` y el corto `-h` los inyecta clap, no son campos.
+
+### Resultado
+- `cargo test --test mission_consistency` → 2 passed · `cargo fmt --check` 0 · `clippy -D warnings` 0 · lib 518 · integration 8 · e2e 12 · node 25 aserciones.
+
+### Archivos modificados
+- `tests/mission_consistency.rs` - nuevo test de consistencia retos ↔ CLI
+- `.github/workflows/ci.yml` - steps `mission_consistency` + Node 20 + test JS
+- `docs/tutorial/js/game.js` - `storageOk()` y aviso en `mission start`
+- `dev_weaknesses.md` - #29/#30/#32 → Resuelto, acciones 32/33 ✅, historial
+- `dev_plan.md` - cobertura y siguiente paso
+
+---
+
+## [2026-10-01 11:30] — Modo Misión: tutorial con 12 niveles jugables
+
+### Qué se hizo
+- El tutorial pasó de ser **pasivo** (imprimir secciones) a un **juego por niveles**: el jugador recibe un objetivo (URL + alcance) y una explicación del flag/keyword a usar, y debe *tipear* el comando real de `sparrow` con la sintaxis correcta para superar el reto.
+- **12 niveles** (`MISSIONS` en `docs/tutorial/js/content.js`): Reconocimiento · Primer escaneo · Alcance selectivo · Catálogo de checks · Cookie auth · Cabeceras · Reportes · Rendimiento · Flags opt-in · Wordlists/Config · Laboratorios · Reto final. Cada nivel tiene 4–12 retos; **3 se eligen por partida**.
+- **Cada partida es distinta**: semilla aleatoria → PRNG mulberry32 determinista genera URLs (labs + dominios ejemplo), subsets de `--checks`, cookies (`PHPSESSID=…; security=low`), Bearer tokens, API keys, nombres de informe/wordlist y números de `--concurrency`/`--timeout`.
+- **Sintaxis con `[concepto]`**: cada reto muestra `sintaxis: sparrow scan -t [target-url] --checks [keywords]` y la teoría del nivel incluye plantillas con corchetes; `hint` da la pista concreta (coste: el reto queda en 2★ y +20 XP en vez de 3★/+50).
+- **Validador estricto** (`game.js`): tokenizador que respeta comillas y comentarios `#`; prefijo obligatorio (con variantes `-h`/`--help`), flags reconocidos (alias `-t/--target`, `-o/--output`), valor exacto, `--checks` como conjunto (orden libre), **comillas obligatorias cuando el valor tiene espacios** (mensaje con la forma correcta), flags repetibles (`--header` ×2), flags booleanos opt-in (`--oauth`, `--cors`…) y error para argumentos sobrantes.
+- **Gamificación**: XP, estrellas (★★★), rangos (Grumete → Capitán), HUD `NIVEL 03/12 · RETO 2/3 · XP …`, mapa de niveles con estado (✅/▶️/🔒) y pantalla de victoria.
+- **Persistencia**: `localStorage` (`sparrow-mission-v1`) — al recargar se restaura la partida y el reto en curso. Comandos: `mission start|status|reset`, `hint`, `rank`, `abort`.
+- **Integración**: chip `mission` en el nav, `boot` avisa del modo juego, `help` incluye los comandos del juego, `terminal.js` enruta las entradas (`sparrow …`, `make …`, o cualquier cosa mientras hay partida activa) al validador.
+- **Embebido**: `tutorial.rs` inlinea `js/game.js` (3er tag `<script>`), con test nuevo `test_assemble_inlines_game_engine`; e2e ampliado (assert de `const MISSIONS` y de que no queda `src="js/game.js"`).
+- **Tests JS**: `docs/tutorial/tests/game.test.js` — 25 aserciones en un VM de Node con `localStorage` simulado (arranque, errores, comillas, orden de checks, victoria, restore, variabilidad entre partidas, hint/rank/status).
+
+### Por qué (Justificación)
+- Petición del usuario: *"Quiero que el tutorial sea más interactivo, que haya niveles para aprender a usarlo como si fuera un juego… me das una URL, un alcance y yo mediante sparrow debo ejecutar el comando correcto para pasar el nivel… con [concepto] entre corchetes… 12 niveles con varios comandos cada uno y que cada partida sea distinta"*.
+
+### Decisiones tomadas
+- **Validador por specs declarativas** (`{tokens, flags:[{names, value|checks|values|bool}]}`) vs (a) comparación literal con la respuesta → perdía el orden libre y los alias; (b) parser completo de clap → demasiado coste para un tutorial. La spec se genera desde el RNG, así que el validador es genérico.
+- **Semilla + PRNG determinista** (mulberry32) vs `Math.random()` en cada reto → permite que `restore()` regenere exactamente los mismos retos al recargar (y que el test verifique variabilidad entre partidas).
+- **`localStorage`** vs nada → progreso persistente sin backend; degradación limpia si el storage no está disponible (todo en `try/catch`).
+- **Comillas estrictas solo cuando hay espacios** → enseña el comportamiento real del shell sin frustrar con comillas innecesarias.
+- **`game.js` separado de `content.js`** → el motor no se mezcla con el contenido tipado; el contenido de los niveles vive junto al resto del tutorial (regla de sincronía con `TUTORIAL.md` intacta).
+- **Hook `_debug()` tras `window.__MISSION_TEST__`** → el test puede leer el reto esperado sin exponer respuestas en el navegador (el flag no está definido en producción).
+
+### Investigación realizada
+- CLI real como fuente de verdad: `src/cli/mod.rs` (flags `--wordlist-subdomain`, `--api-fuzz`, `-t/-o`, booleanos opt-in) y `src/core/engine.rs → parse_checks` (keywords canónicas y alias válidos) — los retos usan sintaxis real, no inventada.
+- Patrón de embebido existente en `tutorial.rs` (`include_str!` + `replace`) para el 3er script.
+
+### Resultado
+- `cargo fmt --check` (0) · `RUSTFLAGS=-D warnings cargo clippy --all-targets --all-features` (0 warnings) · **lib 518 ✓** (+1), **integration 8 ✓**, **e2e 12 ✓** (+1 aserción).
+- `node docs/tutorial/tests/game.test.js` → **25 aserciones ✓**.
+- Manual con Playwright sobre el HTML ensamblado (103 KB): `mission start` → nivel con teoría y reto; acierto (+50 XP, ★★★, HUD), error con pista de sintaxis, `hint`, `restore` tras recargar. 0 fallos.
+
+### Archivos modificados
+- `docs/tutorial/js/game.js` — **NUEVO** (motor: PRNG, validador, XP/estrellas/rangos, persistencia, HUD)
+- `docs/tutorial/js/content.js` — `MISSIONS` (12 niveles), portada `mission`, help, `CHECKS`, boot con avance del modo juego
+- `docs/tutorial/js/terminal.js` — enrutado al modo misión + restore en boot + contador dinámico de comandos
+- `docs/tutorial/index.html` — chip `mission`, `<script src="js/game.js">`
+- `docs/tutorial/css/style.css` — estilos `.l.goal`, `.l.hud`, `code` inline
+- `docs/tutorial/tests/game.test.js` — **NUEVO** (25 aserciones)
+- `docs/tutorial/README.md` — sección Modo Misión, estructura y tests
+- `src/commands/tutorial.rs` — `GAME_JS` + replace + test `test_assemble_inlines_game_engine`
+- `tests/e2e/cli_test.rs` — asserts de `MISSIONS` y de `js/game.js` inlineado
+- `README.md`, `TUTORIAL.md` — mención del Modo Misión
+- `dev_plan.md`, `dev_changelog.md`, `dev_weaknesses.md` — contexto
+
+---
+
 ## [2026-10-01 06:15] — Tutorial HTML interno + comando `sparrow tutorial`
 
 ### Qué se hizo

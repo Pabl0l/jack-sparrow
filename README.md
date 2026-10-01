@@ -6,7 +6,7 @@
 
 Professional web pentesting tool that orchestrates proven security tools to detect **30 types of vulnerabilities** from a single CLI.
 
-> **Nuevo aquí?** Instala y ejecuta `sparrow tutorial` — se abre en tu navegador la [guía interactiva estilo terminal](https://github.com/Pabl0l/jack-sparrow/tree/main/docs/tutorial). También está el [tutorial completo en Markdown](TUTORIAL.md) — instalación, primer escaneo, autenticación, reportes y laboratorios, paso a paso.
+> **Nuevo aquí?** Instala y ejecuta `sparrow tutorial` — se abre en tu navegador la [guía interactiva estilo terminal](https://github.com/Pabl0l/jack-sparrow/tree/main/docs/tutorial), con el **Modo Misión** (`mission start`): 12 niveles para aprender a usar sparrow tipeando los comandos reales. También está el [tutorial completo en Markdown](TUTORIAL.md) — instalación, primer escaneo, autenticación, reportes y laboratorios, paso a paso.
 
 ## Vulnerability Scanners
 
@@ -90,6 +90,11 @@ sparrow tutorial --save tutorial.html   # just write the file (no browser)
 ```
 
 The source lives in [`docs/tutorial/`](docs/tutorial).
+
+Besides the guide, it ships a **Mission Mode**: 12 levels where the tutorial gives you a
+target and a scope and you must type the real `sparrow` command with the right syntax to
+advance (XP, star ratings, ranks, and a different set of objectives every run — start it
+with `mission start`).
 
 ### Install external tools
 

@@ -22,6 +22,36 @@
 - **Mitigación**: [~] Fallbacks en CSS (`'VT323', 'Courier New', monospace`); si importa, auto-hostear woff2 en `docs/tutorial/fonts/` (+ ~80 KB al binario)
 - **Estado**: [~] Aceptado por ahora
 
+### 29. Retos del Modo Misión fijados a mano frente a la CLI real
+- **Riesgo**: Medio — los retos de `MISSIONS` usan flags/keywords copiados de `cli/mod.rs` y `parse_checks`; si la CLI cambia (flag renombrado, keyword nueva), el reto queda obsoleto y el jugador "falla" un comando que en realidad es válido
+- **Probabilidad**: Media (la CLI evoluciona por sprints)
+- **Mitigación**: [X] test `tests/mission_consistency.rs` que extrae keywords/flags/subcomandos/pares keyword↔flag de `MISSIONS` y los cruza con `parse_checks`, `src/cli/mod.rs` y el `Makefile` (con red de seguridad anti-regex-vacío); [X] revisión manual contra el código real al implementarlo (2026-10-01)
+- **Estado**: [X] Resuelto (2026-10-01)
+
+### 30. Progreso del Modo Misión en `localStorage`
+- **Riesgo**: Bajo — sin storage (modo privado / `file://` restringido) la partida no persiste entre recargas y se pierde el XP
+- **Probabilidad**: Baja/Media
+- **Mitigación**: [X] todo el acceso va en `try/catch` (el juego funciona, solo no persiste); [X] `mission start` avisa si el storage no escribe (`storageOk()` con probe de escritura)
+- **Estado**: [X] Resuelto (2026-10-01)
+
+### 31. Validador estricto del Modo Misión puede frustrar
+- **Riesgo**: Bajo — rechaza argumentos sobrantes o flags no pedidos en ese reto; un usuario con experiencia puede ver rechazado un comando que la CLI aceptaría
+- **Probabilidad**: Media
+- **Mitigación**: [X] cada error muestra la sintaxis esperada + `hint`; [X] orden de `--checks` libre y alias reales aceptados (`-t/--target`, `-o/--output`, `-h/--help`)
+- **Estado**: [~] Monitorizado
+
+### 32. `docs/tutorial/tests/game.test.js` no corre en CI
+- **Riesgo**: Bajo — las 25 aserciones del modo misión son locales; una regresión en `game.js`/`content.js` pasaría el CI (que solo valida Rust)
+- **Probabilidad**: Media
+- **Mitigación**: [X] steps en el job `test` de `ci.yml`: `cargo test --test mission_consistency` + `actions/setup-node@v4` + `node docs/tutorial/tests/game.test.js` (sin dependencias)
+- **Estado**: [X] Resuelto (2026-10-01)
+
+### 33. Hook `_debug()` viaja en el HTML ensamblado
+- **Riesgo**: Leve — `window.GAME._debug` solo se define si `window.__MISSION_TEST__` está marcado antes de cargar, así que en producción no existe; aun así, quien abra la consola podría auto-revelar la respuesta de un reto
+- **Probabilidad**: Baja (es un tutorial, no una competición)
+- **Mitigación**: [X] sin flag no hay API; aceptado como coste de tener tests deterministas
+- **Estado**: [X] Aceptado
+
 ---
 
 ## Nuevos Weaknesses (2026-09-30)
@@ -148,6 +178,10 @@
 27. ~~Release ARM64 fallaba por openssl-sys cross~~ ✅ 2026-09-30 (openssl vendored condicional a aarch64-linux)
 28. ~~Test e2e de versión hardcodeado (0.4.0)~~ ✅ 2026-09-30 (env!(CARGO_PKG_VERSION) en toda la base)
 29. ~~Tutorial para nuevos usuarios~~ ✅ 2026-09-30 (TUTORIAL.md, 18 secciones, enlazado desde README)
+30. ~~Tutorial interactivo HTML + `sparrow tutorial`~~ ✅ 2026-10-01 (`docs/tutorial/`, ensamblado autocontenido)
+31. ~~Tutorial pasivo → Modo Misión (12 niveles jugables)~~ ✅ 2026-10-01 (game.js + MISSIONS + validador estricto)
+32. ~~Verificar keywords/flags de `MISSIONS` contra la CLI (test)~~ ✅ 2026-10-01 (`tests/mission_consistency.rs`)
+33. ~~Añadir `node docs/tutorial/tests/game.test.js` al CI~~ ✅ 2026-10-01 (job `test` en `ci.yml`)
 
 ---
 
@@ -155,6 +189,10 @@
 
 | Fecha | Riesgo | Acción tomada | Resultado |
 |-------|--------|---------------|-----------|
+| 2026-10-01 | Retos de MISSIONS podían desincronizarse de la CLI (#29) | `tests/mission_consistency.rs` cruza retos ↔ `parse_checks`/`cli/mod.rs`/`Makefile` | ✅ 2 tests en CI |
+| 2026-10-01 | Sin aviso si `localStorage` falla (#30) | probe de escritura en `mission start` con warn | ✅ Resuelto |
+| 2026-10-01 | Tests JS del juego fuera del CI (#32) | steps Node + `mission_consistency` en job `test` | ✅ 25 aserciones en CI |
+| 2026-10-01 | Tutorial pasivo, poco retención | Modo Misión: 12 niveles, validador estricto, XP/estrellas, localStorage | ✅ 25 aserciones + prueba Playwright |
 | 2026-09-30 | CI fallaba por ~85 warnings (`-D warnings`) | main→lib, dead code, lints clippy, allows crate-level | ✅ 0 warnings |
 | 2026-09-30 | Release ARM64: openssl-sys cross sin OpenSSL | dep condicional openssl vendored (aarch64-linux) | ✅ Fix aplicado (v0.6.1) |
 | 2026-09-30 | Test e2e de versión hardcodeado 0.4.0 | `env!(CARGO_PKG_VERSION)` en CLI/reportes/UA/test | ✅ Future-proof |

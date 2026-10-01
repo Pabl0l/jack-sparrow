@@ -43,6 +43,7 @@ const TUTORIAL = {
     { t: 'ok', v: 'Jack Sparrow Terminal v0.6.1 ... cargado' },
     { t: 'ok', v: 'Módulos del tutorial .... 18/18 listos' },
     { t: 'ok', v: 'Shell interactiva .......... lista' },
+    { t: 'ok', v: 'Modo misión (12 niveles) ... listo → escribe `mission start`' },
     { t: 'gap' },
   ],
 
@@ -76,9 +77,35 @@ const TUTORIAL = {
       '    whoami        Quién está detrás',
       '    github        Enlaces al repositorio',
       '    clear         Limpiar pantalla (Ctrl+L)',
+      '',
+      '  MODO MISIÓN (juego de 12 niveles)',
+      '    mission       Portada y estado de la partida',
+      '    mission start Nueva partida (retos aleatorios)',
+      '    mission status Mapa de niveles, XP y reto actual',
+      '    hint          Pista del reto actual (−1★)',
+      '    rank          Rangos y XP',
+      '    abort         Abandona la partida',
     ].join('\n') },
     { t: 'gap' },
     { t: 'dim', v: 'Tip: usa Tab para autocompletar y ↑/↓ para el historial.' },
+  ],
+
+  /* ---------------- modo misión (juego) ---------------- */
+  mission: [
+    { t: 'h', v: 'Modo Misión — aprende sparrow jugando 🏴‍☠️' },
+    { t: 'p', v: 'Campaña de **12 niveles** con retos reales: te doy un objetivo, un alcance y una explicación, y tú escribes el comando de `sparrow` con la sintaxis correcta para superarlo.' },
+    { t: 'gap' },
+    { t: 'code', v: [
+      'mission start     # nueva partida (los retos cambian en cada run)',
+      'mission status    # mapa de niveles, XP y reto actual',
+      'mission reset     # borra el progreso',
+      'hint              # pista del reto actual (−1 estrella)',
+      'rank              # rangos y XP acumulada',
+      'abort             # abandona la partida',
+    ].join('\n') },
+    { t: 'gap' },
+    { t: 'p', v: 'Cada nivel explica qué flag o keyword vas a usar y muestra la sintaxis con `[concepto]` entre corchetes: tu trabajo es sustituirlos por los valores concretos del reto.' },
+    { t: 'dim', v: 'El progreso se guarda en tu navegador: si recargas la página, sigues donde estabas.' },
   ],
 
   /* ---------------- 1. intro ---------------- */
@@ -511,8 +538,823 @@ const TUTORIAL = {
   ],
 };
 
+/* Envuelve un valor en código inline (`valor`) dentro de los textos */
+const C = (s) => String.fromCharCode(96) + s + String.fromCharCode(96);
+
+/* Keywords válidas para --checks (misma lista que parse_checks del motor) */
+const CHECKS = [
+  'sqli', 'xss', 'idor', 'ssrf', 'headers', 'tech', 'secrets', 'subdomains', 'waf',
+  'jwt', 'graphql', 'api', 'cloud-metadata', 'xxe', 'ssti', 'form', 'csrf', 'upload',
+  'supply-chain',
+];
+
+/* ============================================================
+   Modo Misión — 12 niveles.
+   Cada `tasks[i](rng)` genera un reto concreto a partir de la
+   semilla de la partida (URLs, checks, ficheros y tokens cambian
+   en cada run). Contrato del reto:
+     goal   → enunciado con los valores concretos del reto
+     syntax → plantilla con [concepto] entre corchetes
+     hint   → pista que imprime `hint`
+     tokens → prefijo obligatorio (subcomando real de sparrow)
+     alts   → prefijos alternativos aceptados (opcional)
+     flags  → flags obligatorios con sus valores esperados
+   ============================================================ */
+const MISSIONS = [
+
+  /* ── 01 · Reconocimiento ─────────────────────────────────────── */
+  {
+    id: 1, icon: '🔍', title: 'Reconocimiento', pick: 3,
+    theory: [
+      { t: 'p', v: 'Antes de escanear, comprueba que la instalación responde. Sintaxis general: `sparrow [subcomando] [flags]`.' },
+      { t: 'code', v: [
+        'sparrow version            # versión instalada',
+        'sparrow --help             # ayuda general (-h también vale)',
+        'sparrow scan --help        # ayuda del subcomando scan',
+        'sparrow check-tools        # herramientas externas disponibles',
+        'sparrow init-config        # genera jack-sparrow.toml',
+      ].join('\n') },
+      { t: 'dim', v: 'Lo que va tras # es comentario: no forma parte del comando.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      () => ({
+        goal: 'Comprueba qué versión de sparrow tienes instalada.',
+        syntax: 'sparrow [subcomando]', hint: 'El subcomando se llama `version`.',
+        tokens: ['sparrow', 'version'],
+      }),
+      () => ({
+        goal: 'Muestra la ayuda general de la CLI.',
+        syntax: 'sparrow [flag-de-ayuda]', hint: 'El flag de ayuda es `--help`.',
+        tokens: ['sparrow', '--help'], alts: [['sparrow', '-h']],
+      }),
+      () => ({
+        goal: 'Consulta la ayuda específica del subcomando `scan`.',
+        syntax: 'sparrow scan [flag-de-ayuda]', hint: 'Subcomando + flag: `scan --help`.',
+        tokens: ['sparrow', 'scan', '--help'], alts: [['sparrow', 'scan', '-h']],
+      }),
+      () => ({
+        goal: 'Verifica qué herramientas externas (sqlmap, dalfox…) tienes disponibles.',
+        syntax: 'sparrow [subcomando]', hint: 'El subcomando es `check-tools`, con guiones.',
+        tokens: ['sparrow', 'check-tools'],
+      }),
+    ],
+  },
+
+  /* ── 02 · Tu primer escaneo ──────────────────────────────────── */
+  {
+    id: 2, icon: '🚀', title: 'Tu primer escaneo', pick: 3,
+    theory: [
+      { t: 'p', v: 'Sintaxis base de un escaneo: lo obligatorio es la URL objetivo con `-t` (forma corta) o `--target` (forma larga).' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url]                              # todo por defecto',
+        'sparrow scan -t [target-url] --checks [keyword]           # solo un check',
+        'sparrow scan --target [target-url] --checks headers,tech  # varios, en coma',
+      ].join('\n') },
+      { t: 'dim', v: 'Por defecto `--checks` es `all`: en el reto "por defecto" no hace falta escribirlo.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.url();
+        return {
+          goal: 'Escanea ' + C(u) + ' con la configuración por defecto (todos los checks).',
+          syntax: 'sparrow scan -t [target-url]', hint: 'Solo necesitas el target: no toques `--checks`.',
+          tokens: ['sparrow', 'scan'], flags: [{ names: ['-t', '--target'], value: u }],
+        };
+      },
+      (r) => {
+        const u = r.url();
+        return {
+          goal: 'Sobre ' + C(u) + ', comprueba únicamente las cabeceras de seguridad (CSP, HSTS…).',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `headers`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['headers'] }],
+        };
+      },
+      (r) => {
+        const u = r.url();
+        return {
+          goal: 'Sobre ' + C(u) + ', identifica framework, CMS y versión (fingerprinting).',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword de fingerprinting es `tech`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['tech'] }],
+        };
+      },
+      (r) => {
+        const u = r.url();
+        return {
+          goal: 'Sobre ' + C(u) + ', busca SQL Injection.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `sqli`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['sqli'] }],
+        };
+      },
+      (r) => {
+        const u = r.url();
+        return {
+          goal: 'Sobre ' + C(u) + ', detecta si hay un WAF delante del servidor.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `waf`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['waf'] }],
+        };
+      },
+    ],
+  },
+
+  /* ── 03 · Alcance selectivo ──────────────────────────────────── */
+  {
+    id: 3, icon: '🎯', title: 'Alcance selectivo', pick: 3,
+    theory: [
+      { t: 'p', v: 'Un escaneo útil define **alcance**: los checks exactos que quieres correr. Varios con comas y **sin espacios**.' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks sqli,xss',
+        'sparrow scan -t [target-url] --checks [keyword-1],[keyword-2],[keyword-3]',
+      ].join('\n') },
+      { t: 'table', head: ['Grupo', 'Keywords'], rows: [
+        ['Web clásica', 'sqli, xss, idor, csrf, form, upload'],
+        ['API', 'api, graphql, jwt, api-fuzz'],
+        ['Infra', 'subdomains, waf, ssrf, cloud-metadata'],
+        ['XML / Plantillas', 'xxe, ssti'],
+      ] },
+      { t: 'dim', v: 'El orden no importa: `xss,sqli` es lo mismo que `sqli,xss`.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.any();
+        const c = r.subset(['idor', 'ssrf', 'waf', 'secrets', 'jwt', 'graphql', 'api', 'subdomains'], 2);
+        return {
+          goal: 'Sobre ' + C(u) + ', corre exactamente los checks ' + C(c.join(',')) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords]',
+          hint: 'Dos keywords separadas por coma, sin espacios.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: c }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        const c = r.subset(CHECKS, 3);
+        return {
+          goal: 'Sobre ' + C(u) + ', acota el escaneo a ' + C(c.join(',')) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords]',
+          hint: 'Tres keywords en coma: ' + C(c.join(',')) + '.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: c }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'Sobre ' + C(u) + ', audita la API REST: CORS, métodos HTTP y su esquema GraphQL.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords]',
+          hint: 'Dos keywords: `api` y `graphql`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['graphql', 'api'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'Sobre ' + C(u) + ', ejecuta el trío clásico de bug bounty: SQLi, XSS e IDOR.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords]',
+          hint: 'Las tres keywords: `sqli`, `xss`, `idor`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['sqli', 'xss', 'idor'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        const c = r.subset(['xxe', 'ssti', 'cloud-metadata', 'csrf', 'upload', 'form'], 2);
+        return {
+          goal: 'Sobre ' + C(u) + ', enfócate en ' + C(c.join(',')) + ' y nada más.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords]',
+          hint: 'Exactamente ' + C(c.join(',')) + '.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: c }],
+        };
+      },
+    ],
+  },
+
+  /* ── 04 · El catálogo de checks ──────────────────────────────── */
+  {
+    id: 4, icon: '🗂️', title: 'El catálogo de checks', pick: 3,
+    theory: [
+      { t: 'p', v: 'Aquí traducimos **qué queremos detectar** en la keyword correcta:' },
+      { t: 'code', v: [
+        '# quiero detectar inyección SQL →',
+        'sparrow scan -t [target-url] --checks sqli',
+        '# quiero revisar cabeceras de seguridad →',
+        'sparrow scan -t [target-url] --checks headers',
+      ].join('\n') },
+      { t: 'dim', v: 'La lista completa está en la sección `checks` del tutorial.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' busca credenciales, tokens y API keys expuestas en las respuestas.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `secrets`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['secrets'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' detecta si los endpoints XML aceptan entidades externas (lectura de ficheros).',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `xxe`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['xxe'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' prueba inyección de plantillas (Jinja2, Twig, Freemarker…) que puede derivar en RCE.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `ssti`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['ssti'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' comprueba si AWS/GCP/Azure exponen sus metadatos de instancia (IMDS).',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `cloud-metadata`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['cloud-metadata'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' enumera subdominios vía Certificate Transparency (crt.sh) y brute-force.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `subdomains`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['subdomains'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' analiza los JWT de sesión: decodificación, entropía de la firma y secretos débiles.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `jwt`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['jwt'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' audita las dependencias de npm/pip/cargo con vulnerabilidades conocidas.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `supply-chain`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['supply-chain'] }],
+        };
+      },
+      (r) => {
+        const u = r.any();
+        return {
+          goal: 'En ' + C(u) + ' detecta si el formulario de login es vulnerable a inyección en campos POST.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword]', hint: 'La keyword es `form`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['form'] }],
+        };
+      },
+    ],
+  },
+
+  /* ── 05 · Autenticación con cookie ───────────────────────────── */
+  {
+    id: 5, icon: '🍪', title: 'Autenticación con cookie', pick: 3,
+    theory: [
+      { t: 'p', v: 'La mayoría de vulnerabilidades viven **tras el login**. Con `--cookie` reutilizas tu sesión del navegador (DevTools → Red → cabecera Cookie).' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks [keywords] \\',
+        '  --cookie "[nombre-cookie]=[valor]; [flag]=[valor]"',
+        '',
+        '# o con una cookie simple, sin espacios:',
+        'sparrow scan -t [target-url] --checks [keywords] --cookie [session=valor]',
+      ].join('\n') },
+      { t: 'dim', v: 'Si el valor tiene espacios **hay que ponerlo entre comillas**; si no, no haría falta.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.url(), c = r.session();
+        return {
+          goal: 'Escanea ' + C(u) + ' con `sqli,xss` usando la sesión ' + C(c) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --cookie "[cookie]"',
+          hint: 'La cookie lleva espacios → va entre comillas dobles.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['sqli', 'xss'] }, { names: ['--cookie'], value: c }],
+        };
+      },
+      (r) => {
+        const u = r.url(), c = r.bare();
+        return {
+          goal: 'Escanea ' + C(u) + ' comprobando solo `idor`, autenticándote con la cookie ' + C(c) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword] --cookie [cookie]',
+          hint: 'Esta cookie no tiene espacios: puedes escribirla tal cual o entre comillas.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['idor'] }, { names: ['--cookie'], value: c }],
+        };
+      },
+      (r) => {
+        const u = r.url(), c = r.session();
+        const ch = r.subset(['headers', 'tech', 'api', 'csrf'], 2);
+        return {
+          goal: 'Escanea ' + C(u) + ' con los checks ' + C(ch.join(',')) + ' usando la cookie ' + C(c) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --cookie "[cookie]"',
+          hint: 'Comillas por los espacios de la cookie; checks separados por coma.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ch }, { names: ['--cookie'], value: c }],
+        };
+      },
+      (r) => {
+        const u = r.url(), c = r.session();
+        return {
+          goal: 'Escanea ' + C(u) + ' con la configuración por defecto pero con la sesión ' + C(c) + ' (sin tocar `--checks`).',
+          syntax: 'sparrow scan -t [target-url] --cookie "[cookie]"',
+          hint: 'Solo target + cookie: nada de `--checks` en este reto.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--cookie'], value: c }],
+        };
+      },
+    ],
+  },
+
+  /* ── 06 · Cabeceras de autorización ──────────────────────────── */
+  {
+    id: 6, icon: '🔑', title: 'Cabeceras de autorización', pick: 3,
+    theory: [
+      { t: 'p', v: 'Las APIs usan **headers**. `--header` es repetible y el formato es `"Clave: Valor"` (con espacios → comillas).' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks [keyword] \\',
+        '  --header "Authorization: Bearer [token]"',
+        '',
+        '# dos cabeceras a la vez: repite el flag',
+        'sparrow scan -t [target-url] --checks [keyword] \\',
+        '  --header "[clave-1]: [valor-1]" --header "[clave-2]: [valor-2]"',
+      ].join('\n') },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.any(), h = 'Authorization: Bearer ' + r.token();
+        return {
+          goal: 'Escanea ' + C(u) + ' (check `api`) con la cabecera ' + C(h) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword] --header "[clave]: [valor]"',
+          hint: 'Espacios dentro del valor → comillas dobles.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['api'] }, { names: ['--header'], value: h }],
+        };
+      },
+      (r) => {
+        const u = r.any(), h = 'X-API-Key: ' + r.apiKey();
+        return {
+          goal: 'Escanea ' + C(u) + ' con la cabecera de API key ' + C(h) + ' (checks por defecto).',
+          syntax: 'sparrow scan -t [target-url] --header "[clave]: [valor]"',
+          hint: 'No hace falta `--checks`: solo target y la cabecera.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--header'], value: h }],
+        };
+      },
+      (r) => {
+        const u = r.any(), h1 = 'Authorization: Bearer ' + r.token(), h2 = 'X-Request-Id: ' + r.id();
+        return {
+          goal: 'Escanea ' + C(u) + ' con las dos cabeceras ' + C(h1) + ' y ' + C(h2) + ' (checks `api,graphql`).',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --header "[c1]: [v1]" --header "[c2]: [v2]"',
+          hint: 'Repite `--header` una vez por cabecera.',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: u },
+            { names: ['--checks'], checks: ['api', 'graphql'] },
+            { names: ['--header'], values: [h1, h2], multi: true },
+          ],
+        };
+      },
+      (r) => {
+        const u = r.any(), h = 'X-Internal-Token: ' + r.token();
+        return {
+          goal: 'Escanea ' + C(u) + ' con los checks `waf,secrets` y la cabecera ' + C(h) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --header "[clave]: [valor]"',
+          hint: 'Target + dos keywords + cabecera entre comillas.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['waf', 'secrets'] }, { names: ['--header'], value: h }],
+        };
+      },
+    ],
+  },
+
+  /* ── 07 · Reportes ───────────────────────────────────────────── */
+  {
+    id: 7, icon: '📄', title: 'Reportes', pick: 3,
+    theory: [
+      { t: 'p', v: 'Un hallazgo sin reporte no existe. `--output` (`-o`) escribe el fichero y `--format` elige el formato.' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks [keywords] \\',
+        '  --output [informe.html] --format html',
+        '',
+        '# cortos equivalentes:',
+        'sparrow scan -t [target-url] -o [informe.json] --format json',
+      ].join('\n') },
+      { t: 'table', head: ['format', 'Para qué'], rows: [
+        ['html', 'Informe oscuro con CVSS → PDF con Ctrl+P'],
+        ['json', 'CI/CD y dashboards'],
+        ['markdown', 'Issues y documentación'],
+        ['csv', 'Importar a Excel/Sheets'],
+      ] },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.any(), f = r.file('html');
+        return {
+          goal: 'Sobre ' + C(u) + ' corre `headers,tech` y guarda el resultado en ' + C(f) + ' como HTML.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --output [archivo] --format html',
+          hint: 'Dos flags: `--output` con el nombre y `--format html`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['headers', 'tech'] }, { names: ['-o', '--output'], value: f }, { names: ['--format'], value: 'html' }],
+        };
+      },
+      (r) => {
+        const u = r.any(), f = r.file('json');
+        return {
+          goal: 'Sobre ' + C(u) + ' corre `sqli,xss` y escribe ' + C(f) + ' en JSON usando la forma corta de output.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] -o [archivo] --format json',
+          hint: 'La forma corta de `--output` es `-o`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['sqli', 'xss'] }, { names: ['-o', '--output'], value: f }, { names: ['--format'], value: 'json' }],
+        };
+      },
+      (r) => {
+        const u = r.any(), f = r.file('md');
+        return {
+          goal: 'Sobre ' + C(u) + ' corre `api` y exporta un informe Markdown en ' + C(f) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword] --format [formato] --output [archivo]',
+          hint: '`--format markdown` y el nombre en `--output`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['api'] }, { names: ['-o', '--output'], value: f }, { names: ['--format'], value: 'markdown' }],
+        };
+      },
+      (r) => {
+        const u = r.any(), f = r.file('csv');
+        return {
+          goal: 'Sobre ' + C(u) + ' corre `idor,ssrf` y exporta a CSV en ' + C(f) + ' para hoja de cálculo.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --output [archivo] --format csv',
+          hint: '`--format csv` (el orden de los flags da igual).',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['idor', 'ssrf'] }, { names: ['-o', '--output'], value: f }, { names: ['--format'], value: 'csv' }],
+        };
+      },
+    ],
+  },
+
+  /* ── 08 · Rendimiento ────────────────────────────────────────── */
+  {
+    id: 8, icon: '⚙️', title: 'Rendimiento', pick: 3,
+    theory: [
+      { t: 'p', v: 'Ajusta concurrencia y tiempo máximo según el objetivo. Ambos flags esperan **números**.' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks [keywords] \\',
+        '  --concurrency [nº-scanners] --timeout [segundos]',
+        '',
+        '# objetivo lento + escaneo completo:',
+        'sparrow scan -t [target-url] --checks all --timeout [segundos]',
+      ].join('\n') },
+      { t: 'table', head: ['Flag', 'Defecto', 'Cuándo subirlo'], rows: [
+        ['--concurrency', '4', 'Máquinas con buen ancho de banda'],
+        ['--timeout', '300', 'Objetivos lentos o `--checks all`'],
+      ] },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.any(), c = r.int(2, 12), t = r.pick([120, 180, 420, 600, 900]);
+        return {
+          goal: 'Escanea ' + C(u) + ' con ' + C(String(c)) + ' scanners en paralelo y timeout de ' + C(String(t)) + ' s (checks por defecto).',
+          syntax: 'sparrow scan -t [target-url] --concurrency [nº] --timeout [segundos]',
+          hint: '`--concurrency` y `--timeout` llevan números, sin comillas.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--concurrency'], value: String(c) }, { names: ['--timeout'], value: String(t) }],
+        };
+      },
+      (r) => {
+        const u = r.any(), c = r.int(2, 16), ch = r.subset(['sqli', 'xss', 'idor', 'ssrf', 'waf'], 2);
+        return {
+          goal: 'Sobre ' + C(u) + ' corre ' + C(ch.join(',')) + ' con ' + C(String(c)) + ' scanners en paralelo.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --concurrency [nº]',
+          hint: 'Checks en coma + `--concurrency` con número.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ch }, { names: ['--concurrency'], value: String(c) }],
+        };
+      },
+      (r) => {
+        const u = r.any(), t = r.pick([240, 360, 480, 720]);
+        return {
+          goal: 'Lanza el escaneo completo de ' + C(u) + ' con timeout de ' + C(String(t)) + ' s.',
+          syntax: 'sparrow scan -t [target-url] --checks all --timeout [segundos]',
+          hint: 'Aquí `--checks` sí se escribe: valor `all`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['all'] }, { names: ['--timeout'], value: String(t) }],
+        };
+      },
+      (r) => {
+        const u = r.any(), c = r.int(3, 10), t = r.pick([150, 300, 600]);
+        return {
+          goal: 'Escanea ' + C(u) + ' (checks por defecto) con ' + C(String(c)) + ' en paralelo y timeout ' + C(String(t)) + ' s.',
+          syntax: 'sparrow scan -t [target-url] --concurrency [nº] --timeout [segundos]',
+          hint: 'Sin `--checks`: solo target + los dos números.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--concurrency'], value: String(c) }, { names: ['--timeout'], value: String(t) }],
+        };
+      },
+    ],
+  },
+
+  /* ── 09 · Scanners opt-in ────────────────────────────────────── */
+  {
+    id: 9, icon: '🧨', title: 'Scanners opt-in', pick: 3,
+    theory: [
+      { t: 'p', v: 'Algunos scanners son **potentes o lentos**: van con su propio flag además de la keyword de `--checks`.' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks [keyword] --[flag-opt-in]',
+        '',
+        '# ejemplos reales:',
+        'sparrow scan -t [target-url] --checks oauth --oauth',
+        'sparrow scan -t [target-url] --checks rate-limit --rate-limit',
+        'sparrow scan -t [target-url] --checks cors --cors',
+      ].join('\n') },
+      { t: 'table', head: ['Keyword', 'Flag obligatorio'], rows: [
+        ['oauth', '--oauth'], ['rate-limit', '--rate-limit'], ['jwt-bruteforce', '--jwt-bruteforce'],
+        ['cors', '--cors'], ['subdomain-takeover', '--takeover'], ['websocket', '--websocket'],
+        ['api-fuzz', '--api-fuzz'], ['browser-xss', '--browser'], ['smuggling', '--smuggling'],
+        ['auth-bypass', '--auth-bypass'], ['graphql-attack', '--graphql-attack'], ['cache-poisoning', '--cache-poisoning'],
+      ] },
+      { t: 'gap' },
+    ],
+    tasks: (() => {
+      const PAIRS = [
+        ['oauth', '--oauth'], ['rate-limit', '--rate-limit'], ['cors', '--cors'],
+        ['subdomain-takeover', '--takeover'], ['websocket', '--websocket'], ['api-fuzz', '--api-fuzz'],
+        ['browser-xss', '--browser'], ['smuggling', '--smuggling'], ['auth-bypass', '--auth-bypass'],
+        ['graphql-attack', '--graphql-attack'], ['cache-poisoning', '--cache-poisoning'],
+        ['jwt-bruteforce', '--jwt-bruteforce'],
+      ];
+      return PAIRS.map(([kw, flag]) => (r) => {
+        const u = r.any();
+        return {
+          goal: 'Sobre ' + C(u) + ' activa el scanner de ' + C(kw) + ' — este es opt-in: sin su flag no se ejecuta.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword] --[flag-opt-in]',
+          hint: 'La keyword ' + C(kw) + ' necesita su flag ' + C(flag) + '.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: [kw] }, { names: [flag], bool: true }],
+        };
+      });
+    })(),
+  },
+
+  /* ── 10 · Wordlists y configuración ──────────────────────────── */
+  {
+    id: 10, icon: '📚', title: 'Wordlists y configuración', pick: 3,
+    theory: [
+      { t: 'p', v: 'Personaliza los diccionarios de fuerza bruta y la configuración global.' },
+      { t: 'code', v: [
+        'sparrow init-config                          # genera jack-sparrow.toml',
+        'sparrow init-config -o [archivo.toml]        # en otra ruta',
+        '',
+        'sparrow scan -t [target-url] --checks subdomains \\',
+        '  --wordlist-subdomain [lista.txt]',
+        '',
+        'sparrow scan -t [target-url] --checks [keyword] --wordlist-path [lista.txt]',
+      ].join('\n') },
+      { t: 'dim', v: 'Flags de wordlists: `--wordlist-subdomain`, `--wordlist-path`, `--wordlist-param`, `--wordlist-password`.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      () => ({
+        goal: 'Genera el archivo de configuración por defecto `jack-sparrow.toml`.',
+        syntax: 'sparrow [subcomando]', hint: 'El subcomando es `init-config`.',
+        tokens: ['sparrow', 'init-config'],
+      }),
+      () => ({
+        goal: 'Genera la configuración pero con el nombre `mi-config.toml`.',
+        syntax: 'sparrow init-config -o [archivo.toml]', hint: '`-o` (o `--output`) cambia el fichero de salida.',
+        tokens: ['sparrow', 'init-config'],
+        flags: [{ names: ['-o', '--output'], value: 'mi-config.toml' }],
+      }),
+      (r) => {
+        const u = r.any(), w = r.wordlist();
+        return {
+          goal: 'Enumera subdominios de ' + C(u) + ' usando tu wordlist propia ' + C(w) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks subdomains --wordlist-subdomain [lista.txt]',
+          hint: 'La keyword es `subdomains` y el flag es `--wordlist-subdomain` (singular).',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['subdomains'] }, { names: ['--wordlist-subdomain'], value: w }],
+        };
+      },
+      (r) => {
+        const u = r.any(), w = r.wordlist();
+        return {
+          goal: 'Fuerza rutas ocultas en ' + C(u) + ' con tu diccionario ' + C(w) + ' (checks por defecto).',
+          syntax: 'sparrow scan -t [target-url] --wordlist-path [lista.txt]',
+          hint: 'Solo target + `--wordlist-path`: nada de `--checks`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--wordlist-path'], value: w }],
+        };
+      },
+      (r) => {
+        const u = r.any(), w = r.wordlist();
+        return {
+          goal: 'Sobre ' + C(u) + ' prueba parámetros con tu lista ' + C(w) + ' usando el fuzzing de API.',
+          syntax: 'sparrow scan -t [target-url] --checks [keyword] --wordlist-param [lista.txt]',
+          hint: 'La keyword de fuzzing es `api-fuzz` (y recuerda su flag `--api-fuzz`).',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: u },
+            { names: ['--checks'], checks: ['api-fuzz'] },
+            { names: ['--api-fuzz'], bool: true },
+            { names: ['--wordlist-param'], value: w },
+          ],
+        };
+      },
+      (r) => {
+        const u = r.any(), w = r.wordlist();
+        return {
+          goal: 'Escanea ' + C(u) + ' con los checks por defecto y el diccionario de parámetros ' + C(w) + '.',
+          syntax: 'sparrow scan -t [target-url] --wordlist-param [lista.txt]',
+          hint: 'Sin `--checks` en este reto: solo target + wordlist.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--wordlist-param'], value: w }],
+        };
+      },
+    ],
+  },
+
+  /* ── 11 · Laboratorios y práctica guiada ─────────────────────── */
+  {
+    id: 11, icon: '🧪', title: 'Laboratorios y práctica', pick: 3,
+    theory: [
+      { t: 'p', v: 'Practica contra los labs del repo (DVWA, Juice Shop, WebGoat, SSRF Lab) — nunca contra sistemas ajenos.' },
+      { t: 'code', v: [
+        'make lab-up                                   # levanta los labs Docker',
+        '',
+        'sparrow scan -t [target-url] --checks [keywords] \\',
+        '  --cookie "[cookie]" \\',
+        '  --output [informe.html] --format html',
+      ].join('\n') },
+      { t: 'table', head: ['Lab', 'URL', 'Para practicar'], rows: [
+        ['DVWA', 'http://localhost', 'SQLi, XSS, IDOR'],
+        ['Juice Shop', 'http://localhost:3001', 'XSS moderno, CSP, API REST'],
+        ['WebGoat', 'http://localhost:8080', 'Lecciones OWASP'],
+        ['SSRF Lab', 'http://localhost:5000', 'Detección SSRF'],
+      ] },
+      { t: 'gap' },
+    ],
+    tasks: [
+      () => ({
+        goal: 'Levanta todos los laboratorios Docker del repositorio.',
+        syntax: 'make [objetivo]', hint: 'El objetivo de Make para levantar todo es `lab-up`.',
+        tokens: ['make', 'lab-up'],
+      }),
+      () => ({
+        goal: 'Cierra los laboratorios Docker del repositorio.',
+        syntax: 'make [objetivo]', hint: 'El objetivo opuesto a `lab-up` es `lab-down`.',
+        tokens: ['make', 'lab-down'],
+      }),
+      (r) => {
+        const c = r.session(), f = r.file('html');
+        const ch = r.subset(['sqli', 'xss', 'idor'], 2);
+        return {
+          goal: 'Sobre DVWA (' + C('http://localhost') + ') corre ' + C(ch.join(',')) + ' con la cookie ' + C(c) + ' y guarda el informe en ' + C(f) + ' (HTML).',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --cookie "[cookie]" --output [archivo] --format html',
+          hint: 'Cinco piezas: target, checks, cookie (con comillas), output y format.',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: 'http://localhost' },
+            { names: ['--checks'], checks: ch },
+            { names: ['--cookie'], value: c },
+            { names: ['-o', '--output'], value: f },
+            { names: ['--format'], value: 'html' },
+          ],
+        };
+      },
+      (r) => {
+        const c = r.int(3, 12), ch = r.subset(['xss', 'headers', 'tech', 'api', 'secrets'], 3);
+        return {
+          goal: 'Audita Juice Shop (' + C('http://localhost:3001') + ') con los checks ' + C(ch.join(',')) + ' y ' + C(String(c)) + ' scanners en paralelo.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --concurrency [nº]',
+          hint: 'La URL de Juice Shop es la del puerto 3001.',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: 'http://localhost:3001' },
+            { names: ['--checks'], checks: ch },
+            { names: ['--concurrency'], value: String(c) },
+          ],
+        };
+      },
+      (r) => {
+        const h = 'Authorization: Bearer ' + r.token();
+        return {
+          goal: 'Contra el SSRF Lab (' + C('http://localhost:5000') + ') corre `ssrf,cloud-metadata` con la cabecera ' + C(h) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks [keywords] --header "[clave]: [valor]"',
+          hint: 'URL del puerto 5000 + dos keywords + cabecera entre comillas.',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: 'http://localhost:5000' },
+            { names: ['--checks'], checks: ['ssrf', 'cloud-metadata'] },
+            { names: ['--header'], value: h },
+          ],
+        };
+      },
+      (r) => {
+        const t = r.pick([180, 300, 450]);
+        return {
+          goal: 'Contra WebGoat (' + C('http://localhost:8080') + ') lanza el escaneo completo con timeout de ' + C(String(t)) + ' s.',
+          syntax: 'sparrow scan -t [target-url] --checks all --timeout [segundos]',
+          hint: 'URL del puerto 8080, `--checks all` y el número en segundos.',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: 'http://localhost:8080' },
+            { names: ['--checks'], checks: ['all'] },
+            { names: ['--timeout'], value: String(t) },
+          ],
+        };
+      },
+    ],
+  },
+
+  /* ── 12 · Reto final ─────────────────────────────────────────── */
+  {
+    id: 12, icon: '🏁', title: 'Reto final', pick: 3,
+    theory: [
+      { t: 'p', v: 'Último nivel: combina todo — alcance total, autenticación, rendimiento y reporte. Este es el comando que usarías en un pentest real.' },
+      { t: 'code', v: [
+        'sparrow scan -t [target-url] --checks all',
+        'sparrow scan -t [target-url] --checks all \\',
+        '  --cookie "[cookie]" --concurrency [nº] --timeout [segundos] \\',
+        '  --output [informe.html] --format html',
+      ].join('\n') },
+      { t: 'warn', v: 'Con `--checks all` el escaneo es largo: úsalo contra labs propios, no contra cualquier objetivo.' },
+      { t: 'gap' },
+    ],
+    tasks: [
+      (r) => {
+        const u = r.url();
+        return {
+          goal: 'Ejecuta el escaneo completo de ' + C(u) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks all', hint: '`--checks all` es la forma de pedir todo.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['all'] }],
+        };
+      },
+      (r) => {
+        const u = r.url(), f = r.file('html');
+        return {
+          goal: 'Escaneo completo de ' + C(u) + ' guardado como HTML en ' + C(f) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks all --output [archivo] --format html',
+          hint: 'Añade `--output` y `--format html` al escaneo completo.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['all'] }, { names: ['-o', '--output'], value: f }, { names: ['--format'], value: 'html' }],
+        };
+      },
+      (r) => {
+        const u = r.any(), c = r.int(6, 16), t = r.pick([420, 600, 780]);
+        return {
+          goal: 'Escaneo completo de ' + C(u) + ' con ' + C(String(c)) + ' scanners en paralelo y timeout ' + C(String(t)) + ' s.',
+          syntax: 'sparrow scan -t [target-url] --checks all --concurrency [nº] --timeout [segundos]',
+          hint: 'Los dos flags numéricos, además de `all`.',
+          tokens: ['sparrow', 'scan'],
+          flags: [{ names: ['-t', '--target'], value: u }, { names: ['--checks'], checks: ['all'] }, { names: ['--concurrency'], value: String(c) }, { names: ['--timeout'], value: String(t) }],
+        };
+      },
+      (r) => {
+        const u = r.any(), ck = r.session(), f = r.file('json');
+        return {
+          goal: 'Pentest autenticado de ' + C(u) + ': escaneo completo con la cookie ' + C(ck) + ', exportado a JSON en ' + C(f) + '.',
+          syntax: 'sparrow scan -t [target-url] --checks all --cookie "[cookie]" --output [archivo] --format json',
+          hint: 'Cinco flags: target, all, cookie con comillas, output y format.',
+          tokens: ['sparrow', 'scan'],
+          flags: [
+            { names: ['-t', '--target'], value: u },
+            { names: ['--checks'], checks: ['all'] },
+            { names: ['--cookie'], value: ck },
+            { names: ['-o', '--output'], value: f },
+            { names: ['--format'], value: 'json' },
+          ],
+        };
+      },
+    ],
+  },
+];
+
 /* Comandos disponibles (orden del help + utilería) */
 const COMMAND_NAMES = [
+  'mission', 'mission start', 'mission status', 'mission reset', 'hint', 'rank', 'abort',
   'help', 'intro', 'install', 'tools', 'start', 'scan', 'checks', 'auth',
   'advanced', 'wordlists', 'session', 'config', 'reports', 'labs',
   'interpret', 'troubleshoot', 'faq', 'best', 'version', 'whoami',

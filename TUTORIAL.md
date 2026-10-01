@@ -126,6 +126,11 @@ sparrow tutorial
 # Alternativa: sparrow tutorial --save tutorial.html
 ```
 
+Dentro del tutorial escribe `mission start` para jugar al **Modo Misión**: 12 niveles
+donde te dan un objetivo y un alcance, y tienes que tipear el comando real de `sparrow`
+con la sintaxis correcta para pasar de nivel (XP, estrellas, rangos y retos que cambian
+en cada partida).
+
 ### Opción B — Compilar desde código
 
 ```bash

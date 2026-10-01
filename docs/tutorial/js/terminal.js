@@ -105,6 +105,13 @@
         await print([{ t: 'warn', v: 'nice try. aquí solo hay permisos de lectura 😉' }], instant);
         return;
       }
+
+      // modo misión: comandos del juego y retos (tienen prioridad)
+      if (window.GAME && GAME.isCmd(cmd)) {
+        await print(GAME.run(raw.trim()), instant);
+        return;
+      }
+
       if (TUTORIAL[cmd]) {
         await print(TUTORIAL[cmd], instant);
         return;
@@ -115,9 +122,16 @@
         await print(TUTORIAL.help, instant);
         return;
       }
+
+      // dentro de una partida, cualquier otra entrada se valida como reto
+      if (window.GAME && GAME.active()) {
+        await print(GAME.run(raw.trim()), instant);
+        return;
+      }
+
       await print([
         { t: 'warn', v: 'comando no encontrado: ' + cmd },
-        { t: 'dim', v: 'Escribe `help` para ver los 24 comandos disponibles.' },
+        { t: 'dim', v: 'Escribe `help` para ver los ' + COMMAND_NAMES.length + ' comandos disponibles.' },
       ], instant);
     } finally {
       skip = false;
@@ -212,6 +226,8 @@
     rain();
     await print(TUTORIAL.boot, reduced);
     await print(TUTORIAL.banner, reduced);
+    const restored = window.GAME ? GAME.restore() : null;
+    if (restored) await print(restored, reduced);
     await print([{ t: 'gap' }], true);
     if (!reduced) await sleep(250);
     input.focus();

@@ -133,8 +133,10 @@ fn test_tutorial_save_writes_standalone_html() {
     assert!(content.contains("ADVANCED PENTEST TOOL"));
     assert!(content.contains("COMMAND_NAMES"));
     assert!(content.contains("--neon: #39ff14"));
+    assert!(content.contains("const MISSIONS"));
     assert!(!content.contains(r#"href="css/style.css""#));
     assert!(!content.contains(r#"src="js/terminal.js""#));
+    assert!(!content.contains(r#"src="js/game.js""#));
 }
 
 #[test]
