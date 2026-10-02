@@ -28,11 +28,14 @@
   - Mock de login tipo DVWA (GET emite `PHPSESSID`, POST no lo repite) + `--cookie "security=low"` → `Auth: login successful, cookies: PHPSESSID=login999` + `Auth: explicit --cookie merged…` y las peticiones del escaneo llegan con `Cookie: PHPSESSID=login999; security=low`.
 
 ### Archivos modificados
-- `src/shared/auth.rs` - `collect_set_cookies`, `merge_cookie_strings`, `upsert_cookie_pair`, `cookies_to_string`, login GET+POST, 7 tests (incl. test con servidor local)
-- `src/core/recorder/browser.rs` - `load_har_cookies`, `hosts_match`, 5 tests
+- `src/shared/auth.rs` - `collect_set_cookies`, `merge_cookie_strings`, `upsert_cookie_pair`, `cookies_to_string`, login GET+POST, 6 tests (incl. test con servidor local)
+- `src/core/recorder/browser.rs` - `load_har_cookies`, `hosts_match`, `add_cookie_array`, 6 tests
 - `src/commands/mod.rs` - bloque de auth reescrito: HAR → login → `--cookie`, fusión con precedencia
 - `TUTORIAL.md`, `README.md` - documentación de las tres fuentes y su precedencia
 - `dev_weaknesses.md`, `dev_plan.md` - #35/#36/#37 → Resuelto
+
+### Resultado (post-push)
+- Commit `2818642` → CI en `main` **verde** en los 6 jobs (run `37033979117`, 2026-10-02).
 
 ---
 

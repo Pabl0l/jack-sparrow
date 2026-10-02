@@ -50,7 +50,7 @@
 - **CI/CD:** GitHub Actions (ci.yml + release.yml). Release v0.6.1 incluye fix ARM64 (openssl vendored target-dep)
 - **Documentación:** `TUTORIAL.md` (Markdown) + `docs/tutorial/` (tutorial HTML interactivo estilo terminal con **Modo Misión** de 12 niveles, embebido en el binario vía `sparrow tutorial`)
 - **Bugs corregidos:** main.rs duplicaba el árbol de módulos (≈50 dead_code), ~35 lints clippy, test e2e esperaba versión 0.4.0, p5_lab_e2e tests anidados dentro de otro test, strings de versión hardcodeados → `env!(CARGO_PKG_VERSION)`
-- **Siguiente paso:** CI verde con Modo Misión + tests de consistencia (2026-10-01, run 36900168317); mejoras opcionales (GitHub Pages, sonido/animación al subir de nivel)
+- **Siguiente paso:** CI verde con autenticación fusionada (run 37033979117, 2026-10-02: #35/#36/#37 resueltos); pendiente solo verificar el login contra el lab DVWA real en `localhost:3001` cuando esté levantado. Mejoras opcionales (GitHub Pages, sonido/animación en el Modo Misión)
 
 ---
 

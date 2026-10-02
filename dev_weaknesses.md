@@ -7,19 +7,19 @@
 ### 35. `--session` (HAR) no se consume en el escaneo
 - **Riesgo**: Medio — `ScanContext.session` se rellena en `commands/mod.rs` pero **nadie lo lee** (grep `\.session` solo toca `logging.session_id`); `load_har_requests()` y `parse_har_cookies()` no tienen llamadores fuera de tests. `sparrow scan --session session.har` (documentado en `TUTORIAL.md` §Record) **no inyecta cookies ni requests** en el escaneo
 - **Probabilidad**: Alta (ya está documentado como funcional)
-- **Mitigación**: [X] `load_har_cookies(path, host)` en `recorder/browser.rs` extrae las cookies del dominio del objetivo (arrays `cookies` de request/respuesta, fallback a la cabecera `Cookie`) filtrando por host y con orden cronológico (la respuesta gana); `execute_scan` las fusiona en `context.cookies`; 4 tests (filtro por host, override, fallback, fichero inexistente) + `hosts_match`
+- **Mitigación**: [X] `load_har_cookies(path, host)` en `recorder/browser.rs` extrae las cookies del dominio del objetivo (arrays `cookies` de request/respuesta, fallback a la cabecera `Cookie`) filtrando por host y con orden cronológico (la respuesta gana); `execute_scan` las fusiona en `context.cookies`; 6 tests (filtro por host, override, fallback a cabecera, respuesta > cabecera, sin host, fichero inexistente) + `hosts_match`; **E2E verificado** con servidor local (requests con las cookies del HAR del dominio y sin las de otros dominios)
 - **Estado**: [X] Resuelto (2026-10-02)
 
 ### 36. Login de formulario solo captura el `Set-Cookie` del POST
 - **Riesgo**: Medio — `FormLoginExecutor::login` itera únicamente las cabeceras de la respuesta al **POST**; las cookies de la fase GET (p. ej. el `PHPSESSID` que PHP emite al abrir sesión) viven en el jar de reqwest y **no se copian** a la cadena final. Si la app no reenvía `Set-Cookie` en el POST → error `"Login completed but no session cookies were found in response"` o sesión incompleta (DVWA/PHP es el caso típico)
-- **Probabilidad**: Media/Alta en stacks PHP — **por verificar** con el lab en `localhost:3001`
-- **Mitigación**: [X] `collect_set_cookies()` recoge el `Set-Cookie` del **GET** y del **POST** (el POST manda en conflictos, orden preservado); test con servidor HTTP local real (`#[tokio::test]` + `TcpListener`) que reproduce el escenario PHP: GET emite `PHPSESSID`, POST no lo repita → el login devuelve la cookie igualmente; tests unitarios de `collect_set_cookies`
+- **Probabilidad**: Media/Alta en stacks PHP — **reproducido y resuelto** con un mock que emite `PHPSESSID` solo en el GET (el lab real en `localhost:3001` pendiente de probar cuando esté levantado)
+- **Mitigación**: [X] `collect_set_cookies()` recoge el `Set-Cookie` del **GET** y del **POST** (el POST manda en conflictos, orden preservado); test con servidor HTTP local real (`#[tokio::test]` + `TcpListener`) que reproduce el escenario PHP: GET emite `PHPSESSID`, POST no lo repita → el login devuelve la cookie igualmente; tests unitarios de `collect_set_cookies`; **E2E verificado** con mock DVWA (login OK sin cookie en el POST)
 - **Estado**: [X] Resuelto (2026-10-02)
 
 ### 37. `--cookie` se descarta si además hay login automático
 - **Riesgo**: Bajo — `commands/mod.rs:239` hacía `context.cookies = Some(login_cookies)`, **sobrescribiendo** lo pasado con `--cookie` sin aviso ⇒ no se podían combinar cookies manuales (p. ej. DVWA `security=low`) con `--login-*`
 - **Probabilidad**: Media
-- **Mitigación**: [X] `merge_cookie_strings(base, incoming)` fusiona por nombre (el entrante gana, orden preservado) con precedencia `--cookie` > login > HAR, aviso en consola cuando hay merge, y tests unitarios de precedencia/casos vacíos
+- **Mitigación**: [X] `merge_cookie_strings(base, incoming)` fusiona por nombre (el entrante gana, orden preservado) con precedencia `--cookie` > login > HAR, aviso en consola cuando hay merge, tests unitarios de precedencia/casos vacíos y **E2E verificado** (escaneo con `Cookie: PHPSESSID=login999; security=low`)
 - **Estado**: [X] Resuelto (2026-10-02)
 
 ---
