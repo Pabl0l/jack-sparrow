@@ -195,14 +195,41 @@ async fn execute_scan(
         println!("Web Cache Poisoning: enabled");
     }
 
-    // Build scan context — start with explicit cookies/headers
+    // Build scan context — headers now; cookies are merged at the end of the
+    // auth block, from the least to the most specific source:
+    // recorded HAR session < form login result < explicit `--cookie`.
     let mut context = ScanContext {
-        cookies: cookie.map(|s| s.to_string()),
+        cookies: None,
         headers: parse_headers(raw_headers),
         session: session.map(|p| p.to_path_buf()),
     };
 
-    // Perform form login if requested
+    // 1) Cookies from a recorded session (`sparrow record` → `--session file.har`)
+    let mut har_cookies: Option<String> = None;
+    if let Some(path) = session {
+        let target_host = reqwest::Url::parse(target)
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_string));
+        match crate::core::recorder::browser::load_har_cookies(path, target_host.as_deref()) {
+            Ok(cookies) if !cookies.is_empty() => {
+                println!(
+                    "Session: {} cookies loaded from {}",
+                    cookies.len(),
+                    path.display()
+                );
+                har_cookies = crate::shared::auth::cookies_to_string(&cookies);
+            }
+            Ok(_) => println!(
+                "Session: no cookies for {} in {}",
+                target_host.as_deref().unwrap_or(target),
+                path.display()
+            ),
+            Err(e) => eprintln!("Warning: session file {} not used: {}", path.display(), e),
+        }
+    }
+
+    // 2) Perform form login if requested
+    let mut login_cookies: Option<String> = None;
     if let (Some(url), Some(user), Some(pass)) = (login_url, login_user, login_pass) {
         println!("Auth: performing form login to {}", url);
 
@@ -230,13 +257,12 @@ async fn execute_scan(
         let executor = crate::shared::auth::FormLoginExecutor::new();
         match executor.login_to_context(&login_config).await {
             Ok(login_ctx) => {
-                // Merge login cookies into context
                 if let Some(cookies) = login_ctx.cookies {
                     println!(
                         "Auth: login successful, cookies: {}",
                         &cookies[..cookies.len().min(50)]
                     );
-                    context.cookies = Some(cookies);
+                    login_cookies = Some(cookies);
                 }
             }
             Err(e) => {
@@ -247,9 +273,20 @@ async fn execute_scan(
                 });
             }
         }
-    } else if cookie.is_some() {
-        println!("Auth: cookies provided");
     }
+
+    // 3) Combine the sources: `--cookie` wins on name conflicts, then the
+    //    fresh login session, then the recorded HAR cookies.
+    if cookie.is_some() {
+        if login_cookies.is_some() || har_cookies.is_some() {
+            println!("Auth: explicit --cookie merged (takes precedence on conflicts)");
+        } else {
+            println!("Auth: cookies provided");
+        }
+    }
+    let auto_cookies =
+        crate::shared::auth::merge_cookie_strings(har_cookies.as_deref(), login_cookies.as_deref());
+    context.cookies = crate::shared::auth::merge_cookie_strings(auto_cookies.as_deref(), cookie);
 
     // If any feature flag is enabled, add corresponding checks
     let effective_checks = if browser

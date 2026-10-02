@@ -167,6 +167,9 @@ all               All scanners (default)
 
 ```bash
 sparrow record --output session.har --browser chromium
+
+# Reuse the recorded cookies while scanning the same target
+sparrow scan --target http://localhost:3001 --checks all --session session.har
 ```
 
 ### Check installed tools

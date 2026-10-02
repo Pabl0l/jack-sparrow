@@ -44,7 +44,7 @@
 - **Última actualización:** 2026-10-01
 - **Progreso general:** ~100%
 - **Versión:** 0.6.1 (tag `v0.6.1` — CI + Release verificados en verde)
-- **Tests:** ~578 (lib 518 + integration 8 + e2e 12 + mission_consistency 2 + lab suites) + 25 aserciones JS (`node docs/tutorial/tests/game.test.js`) — ambos, el test de consistencia y el test JS, corren en CI
+- **Tests:** ~590 (lib 530 + integration 8 + e2e 12 + mission_consistency 2 + lab suites) + 25 aserciones JS (`node docs/tutorial/tests/game.test.js`) — ambos, el test de consistencia y el test JS, corren en CI
 - **Warnings:** 0 — gate estricto `RUSTFLAGS=-D warnings` en CI (fmt + clippy + test)
 - **Instalado globalmente:** `sparrow` command via `cargo install`
 - **CI/CD:** GitHub Actions (ci.yml + release.yml). Release v0.6.1 incluye fix ARM64 (openssl vendored target-dep)

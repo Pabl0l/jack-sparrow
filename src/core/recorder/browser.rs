@@ -1,4 +1,5 @@
 use super::har::{Har, HarEntryBuilder};
+use crate::shared::auth::Cookie;
 use crate::shared::error::JackSparrowError;
 use playwright_rs::{FulfillOptions, LaunchOptions, Playwright, Route};
 use std::path::Path;
@@ -188,6 +189,124 @@ pub struct HarRequestInfo {
     pub status: u16,
 }
 
+/// True when both hostnames identify the same site (dot-prefix and
+/// subdomains included: `app.test.com` ↔ `.test.com`).
+fn hosts_match(a: &str, b: &str) -> bool {
+    let a = a.trim().trim_start_matches('.').to_ascii_lowercase();
+    let b = b.trim().trim_start_matches('.').to_ascii_lowercase();
+    a == b || a.ends_with(&format!(".{b}")) || b.ends_with(&format!(".{a}"))
+}
+
+/// Merge a HAR `cookies` array into `out`; skips cookies scoped to another
+/// domain when the scan target host is known.
+fn add_cookie_array(
+    cookies: Option<&serde_json::Value>,
+    host: Option<&str>,
+    out: &mut Vec<(String, String)>,
+) {
+    let Some(cookies) = cookies.and_then(|c| c.as_array()) else {
+        return;
+    };
+    for cookie in cookies {
+        let (Some(name), Some(value)) = (
+            cookie.get("name").and_then(|n| n.as_str()),
+            cookie.get("value").and_then(|v| v.as_str()),
+        ) else {
+            continue;
+        };
+        if let (Some(h), Some(d)) = (
+            host,
+            cookie
+                .get("domain")
+                .and_then(|d| d.as_str())
+                .filter(|d| !d.is_empty()),
+        ) {
+            if !hosts_match(d, h) {
+                continue;
+            }
+        }
+        crate::shared::auth::upsert_cookie_pair(out, name, value);
+    }
+}
+
+/// Load the cookies a recorded session (`sparrow record` → HAR) carries for
+/// `host`, ready to be used as a `Cookie` header value.
+///
+/// Cookies are collected in chronological order — the request cookies of an
+/// entry first, then the `Set-Cookie` of its response — so later entries win
+/// on name conflicts. Entries for other hosts are skipped (all of them when
+/// `host` is `None`, e.g. the target is not a parseable URL).
+pub fn load_har_cookies(path: &Path, host: Option<&str>) -> Result<Vec<Cookie>, JackSparrowError> {
+    let content = std::fs::read_to_string(path)?;
+    let root: serde_json::Value = serde_json::from_str(&content)?;
+
+    let no_entries: Vec<serde_json::Value> = Vec::new();
+    let entries = root
+        .pointer("/log/entries")
+        .and_then(|e| e.as_array())
+        .unwrap_or(&no_entries);
+
+    let mut merged: Vec<(String, String)> = Vec::new();
+
+    for entry in entries {
+        // Only entries that hit the scan target
+        if let Some(h) = host {
+            let entry_host = entry
+                .pointer("/request/url")
+                .and_then(|u| u.as_str())
+                .and_then(|u| reqwest::Url::parse(u).ok())
+                .and_then(|u| u.host_str().map(str::to_string));
+            if let Some(entry_host) = entry_host {
+                if !hosts_match(&entry_host, h) {
+                    continue;
+                }
+            }
+        }
+
+        // Request-side cookies: the `cookies` array first, then the raw
+        // `Cookie` header (some HAR writers only fill the header).
+        add_cookie_array(entry.pointer("/request/cookies"), host, &mut merged);
+        if let Some(headers) = entry.pointer("/request/headers").and_then(|h| h.as_array()) {
+            for header in headers {
+                let is_cookie = header
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .map(|n| n.eq_ignore_ascii_case("cookie"))
+                    .unwrap_or(false);
+                if !is_cookie {
+                    continue;
+                }
+                let Some(value) = header.get("value").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                for cookie in crate::shared::auth::parse_cookie_string(value) {
+                    crate::shared::auth::upsert_cookie_pair(
+                        &mut merged,
+                        &cookie.name,
+                        &cookie.value,
+                    );
+                }
+            }
+        }
+        // Response-side `Set-Cookie`: the freshest state of this entry.
+        add_cookie_array(entry.pointer("/response/cookies"), host, &mut merged);
+    }
+
+    let domain = host.unwrap_or_default().to_string();
+    Ok(merged
+        .into_iter()
+        .map(|(name, value)| Cookie {
+            name,
+            value,
+            domain: domain.clone(),
+            path: "/".to_string(),
+            secure: false,
+            http_only: false,
+            expires: None,
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,5 +344,138 @@ mod tests {
         assert_eq!(requests[0].status, 200);
         assert_eq!(requests[0].headers.len(), 1);
         assert_eq!(requests[0].headers[0].0, "Authorization");
+    }
+
+    fn har_with_entries(entries: serde_json::Value) -> NamedTempFile {
+        let json = serde_json::json!({ "log": { "version": "1.2", "creator": { "name": "t", "version": "1" }, "entries": entries } });
+        let tmp = NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), json.to_string()).unwrap();
+        tmp
+    }
+
+    fn entry(
+        url: &str,
+        request_cookies: serde_json::Value,
+        response_cookies: serde_json::Value,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "startedDateTime": "2026-10-02T00:00:00Z",
+            "time": 1,
+            "request": { "method": "GET", "url": url, "cookies": request_cookies,
+                         "headers": [] },
+            "response": { "status": 200, "cookies": response_cookies, "headers": [],
+                          "content": { "size": 0 } }
+        })
+    }
+
+    #[test]
+    fn test_load_har_cookies_filters_by_host_and_overrides() {
+        let entries = serde_json::json!([
+            // otra app: se ignora
+            entry(
+                "http://other.local/",
+                serde_json::json!([{ "name": "PHPSESSID", "value": "OTHER" }]),
+                serde_json::json!([]),
+            ),
+            // el objetivo: cookie de la petición
+            entry(
+                "http://localhost:3001/index.php",
+                serde_json::json!([
+                    { "name": "PHPSESSID", "value": "first" },
+                    { "name": "security", "value": "low" }
+                ]),
+                serde_json::json!([]),
+            ),
+            // el objetivo: el Set-Cookie de la respuesta gana
+            entry(
+                "http://localhost:3001/login.php",
+                serde_json::json!([]),
+                serde_json::json!([{ "name": "PHPSESSID", "value": "fresh" }]),
+            ),
+        ]);
+        let tmp = har_with_entries(entries);
+
+        let cookies = load_har_cookies(tmp.path(), Some("localhost")).unwrap();
+        let names: Vec<(&str, &str)> = cookies
+            .iter()
+            .map(|c| (c.name.as_str(), c.value.as_str()))
+            .collect();
+        assert_eq!(names, vec![("PHPSESSID", "fresh"), ("security", "low")]);
+        assert_eq!(cookies[0].domain, "localhost");
+    }
+
+    #[test]
+    fn test_load_har_cookies_falls_back_to_cookie_header() {
+        let entries = serde_json::json!([{
+            "startedDateTime": "2026-10-02T00:00:00Z",
+            "time": 1,
+            "request": {
+                "method": "GET",
+                "url": "http://localhost/vulnerabilities/sqli/",
+                "cookies": [],
+                "headers": [{ "name": "Cookie", "value": "fallback=from-header; other=2" }]
+            },
+            "response": { "status": 200, "cookies": [], "headers": [],
+                          "content": { "size": 0 } }
+        }]);
+        let tmp = har_with_entries(entries);
+
+        let cookies = load_har_cookies(tmp.path(), Some("localhost")).unwrap();
+        assert_eq!(cookies.len(), 2);
+        assert_eq!(cookies[0].name, "fallback");
+        assert_eq!(cookies[0].value, "from-header");
+        assert_eq!(cookies[1].name, "other");
+    }
+
+    #[test]
+    fn test_load_har_cookies_response_wins_over_request_header() {
+        let entries = serde_json::json!([{
+            "startedDateTime": "2026-10-02T00:00:00Z",
+            "time": 1,
+            "request": {
+                "method": "GET",
+                "url": "http://localhost/index.php",
+                "cookies": [],
+                "headers": [{ "name": "Cookie", "value": "PHPSESSID=stale" }]
+            },
+            "response": {
+                "status": 200,
+                "cookies": [{ "name": "PHPSESSID", "value": "fresh", "domain": "localhost" }],
+                "headers": [],
+                "content": { "size": 0 }
+            }
+        }]);
+        let tmp = har_with_entries(entries);
+
+        let cookies = load_har_cookies(tmp.path(), Some("localhost")).unwrap();
+        assert_eq!(cookies.len(), 1);
+        assert_eq!(cookies[0].value, "fresh");
+    }
+
+    #[test]
+    fn test_load_har_cookies_no_host_takes_everything() {
+        let entries = serde_json::json!([entry(
+            "http://anywhere.test/",
+            serde_json::json!([{ "name": "sid", "value": "1" }]),
+            serde_json::json!([]),
+        )]);
+        let tmp = har_with_entries(entries);
+
+        let cookies = load_har_cookies(tmp.path(), None).unwrap();
+        assert_eq!(cookies.len(), 1);
+    }
+
+    #[test]
+    fn test_load_har_cookies_missing_file_errors() {
+        let err = load_har_cookies(Path::new("no-existe.har"), Some("localhost")).unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    #[test]
+    fn test_hosts_match() {
+        assert!(hosts_match("localhost", "localhost"));
+        assert!(hosts_match(".dvwa.local", "dvwa.local"));
+        assert!(hosts_match("app.test.com", "test.com"));
+        assert!(!hosts_match("evil.com", "test.com"));
     }
 }

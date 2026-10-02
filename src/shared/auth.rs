@@ -382,6 +382,9 @@ impl FormLoginExecutor {
             .map_err(|e| format!("Failed to fetch login page: {}", e))?;
 
         let status = resp.status();
+        // Keep the GET headers: many stacks (PHP/DVWA) issue the session cookie
+        // here, on session start, and never repeat it on the login POST.
+        let get_headers = resp.headers().clone();
         let html = resp.text().await.unwrap_or_default();
 
         if !status.is_success() {
@@ -432,26 +435,11 @@ impl FormLoginExecutor {
             }
         }
 
-        // Phase 5: Extract cookies from Set-Cookie response headers
+        // Phase 5: Extract cookies from GET (session bootstrap) + POST Set-Cookie.
+        // POST wins on name conflicts — it is the freshest state.
         let mut cookie_pairs: Vec<(String, String)> = Vec::new();
-
-        for (name, value) in &resp_headers {
-            if name == "set-cookie" {
-                if let Ok(cookie_val) = value.to_str() {
-                    // Parse "name=value; ..." format
-                    if let Some((cookie_name, _)) = cookie_val.split_once('=') {
-                        let cookie_name = cookie_name.trim().to_string();
-                        // Get just the value (before any ; attributes)
-                        let cookie_value = if let Some(rest) = cookie_val.split_once('=') {
-                            rest.1.split(';').next().unwrap_or("").trim().to_string()
-                        } else {
-                            continue;
-                        };
-                        cookie_pairs.push((cookie_name, cookie_value));
-                    }
-                }
-            }
-        }
+        collect_set_cookies(&get_headers, &mut cookie_pairs);
+        collect_set_cookies(&resp_headers, &mut cookie_pairs);
 
         // Check for common auth failure patterns
         let body_lower = body.to_lowercase();
@@ -615,6 +603,83 @@ pub fn parse_cookie_string(cookie_str: &str) -> Vec<Cookie> {
             }
         })
         .collect()
+}
+
+/// Collect `Set-Cookie` headers into `(name, value)` pairs.
+/// Later values replace earlier ones with the same name (in place, order kept).
+pub fn collect_set_cookies(headers: &reqwest::header::HeaderMap, out: &mut Vec<(String, String)>) {
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    for (name, value) in headers.iter() {
+        if name != "set-cookie" {
+            continue;
+        }
+        let Ok(cookie_val) = value.to_str() else {
+            continue;
+        };
+        // "name=value; Path=/; HttpOnly" → name, value (before the first ';')
+        let Some((cookie_name, rest)) = cookie_val.split_once('=') else {
+            continue;
+        };
+        let cookie_name = cookie_name.trim();
+        let cookie_value = rest.split(';').next().unwrap_or("").trim();
+        if cookie_name.is_empty() {
+            continue;
+        }
+        pairs.push((cookie_name.to_string(), cookie_value.to_string()));
+    }
+    collect_pairs(&pairs, out);
+}
+
+/// Merge two cookie strings. Pairs from `incoming` win on name conflicts,
+/// the relative order of `base` is preserved. `None` if nothing remains.
+pub fn merge_cookie_strings(base: Option<&str>, incoming: Option<&str>) -> Option<String> {
+    let mut merged: Vec<(String, String)> = Vec::new();
+    for src in [base, incoming].into_iter().flatten() {
+        let pairs: Vec<(String, String)> = parse_cookie_string(src)
+            .into_iter()
+            .map(|c| (c.name, c.value))
+            .collect();
+        collect_pairs(&pairs, &mut merged);
+    }
+    if merged.is_empty() {
+        return None;
+    }
+    Some(
+        merged
+            .into_iter()
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect::<Vec<_>>()
+            .join("; "),
+    )
+}
+
+/// Insert or replace a `(name, value)` pair, keeping first-seen order.
+pub fn upsert_cookie_pair(out: &mut Vec<(String, String)>, name: &str, value: &str) {
+    match out.iter_mut().find(|(n, _)| n == name) {
+        Some(slot) => slot.1 = value.to_string(),
+        None => out.push((name.to_string(), value.to_string())),
+    }
+}
+
+/// Push `(name, value)` pairs into `out`, replacing existing names in place.
+fn collect_pairs(pairs: &[(String, String)], out: &mut Vec<(String, String)>) {
+    for (name, value) in pairs {
+        upsert_cookie_pair(out, name, value);
+    }
+}
+
+/// Render cookies as a `Cookie` header value: `name1=value1; name2=value2`.
+pub fn cookies_to_string(cookies: &[Cookie]) -> Option<String> {
+    if cookies.is_empty() {
+        return None;
+    }
+    Some(
+        cookies
+            .iter()
+            .map(|c| format!("{}={}", c.name, c.value))
+            .collect::<Vec<_>>()
+            .join("; "),
+    )
 }
 
 /// Parse cookies from a HAR file's cookie array
@@ -871,5 +936,187 @@ mod tests {
             }
             _ => panic!("Expected FormLogin"),
         }
+    }
+
+    #[test]
+    fn test_collect_set_cookies_merges_get_then_post() {
+        let mut get = reqwest::header::HeaderMap::new();
+        get.append(
+            reqwest::header::SET_COOKIE,
+            "PHPSESSID=abc123; Path=/".parse().unwrap(),
+        );
+        get.append(
+            reqwest::header::SET_COOKIE,
+            "security=low; Path=/".parse().unwrap(),
+        );
+        let mut post = reqwest::header::HeaderMap::new();
+        post.append(
+            reqwest::header::SET_COOKIE,
+            "PHPSESSID=zzz; Path=/".parse().unwrap(),
+        );
+
+        let mut out: Vec<(String, String)> = Vec::new();
+        collect_set_cookies(&get, &mut out);
+        collect_set_cookies(&post, &mut out);
+
+        // El POST manda sobre el GET; las cookies nuevas se conservan.
+        assert_eq!(
+            out,
+            vec![
+                ("PHPSESSID".to_string(), "zzz".to_string()),
+                ("security".to_string(), "low".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_collect_set_cookies_ignores_garbage() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.append(
+            reqwest::header::SET_COOKIE,
+            "novalue-without-equals".parse().unwrap(),
+        );
+        headers.append(
+            reqwest::header::SET_COOKIE,
+            "=orphan; Path=/".parse().unwrap(),
+        );
+        let mut out: Vec<(String, String)> = Vec::new();
+        collect_set_cookies(&headers, &mut out);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn test_merge_cookie_strings_incoming_wins() {
+        let merged =
+            merge_cookie_strings(Some("PHPSESSID=old; security=low"), Some("PHPSESSID=new"));
+        assert_eq!(merged.as_deref(), Some("PHPSESSID=new; security=low"));
+    }
+
+    #[test]
+    fn test_merge_cookie_strings_empty_cases() {
+        assert_eq!(merge_cookie_strings(None, None), None);
+        assert_eq!(merge_cookie_strings(Some(""), Some("")), None);
+        assert_eq!(
+            merge_cookie_strings(None, Some("a=b")),
+            Some("a=b".to_string())
+        );
+        assert_eq!(
+            merge_cookie_strings(Some("a=b"), None),
+            Some("a=b".to_string())
+        );
+    }
+
+    #[test]
+    fn test_cookies_to_string() {
+        let cookies = parse_cookie_string("PHPSESSID=abc; security=low");
+        assert_eq!(
+            cookies_to_string(&cookies).as_deref(),
+            Some("PHPSESSID=abc; security=low")
+        );
+        assert_eq!(cookies_to_string(&[]), None);
+    }
+
+    /// Read one HTTP/1.x request (head + body) from the stream.
+    async fn read_request(stream: &mut tokio::net::TcpStream) -> Option<(String, String, String)> {
+        use tokio::io::AsyncReadExt;
+        let mut buf: Vec<u8> = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let head_end = loop {
+            let n = stream.read(&mut chunk).await.ok()?;
+            if n == 0 {
+                return None;
+            }
+            buf.extend_from_slice(&chunk[..n]);
+            if let Some(pos) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                break pos + 4;
+            }
+        };
+        let head = String::from_utf8_lossy(&buf[..head_end]).to_string();
+        let content_length = head
+            .lines()
+            .find(|l| l.to_ascii_lowercase().starts_with("content-length:"))
+            .and_then(|l| l.split(':').nth(1))
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .unwrap_or(0);
+        while buf.len() < head_end + content_length {
+            let n = stream.read(&mut chunk).await.ok()?;
+            if n == 0 {
+                break;
+            }
+            buf.extend_from_slice(&chunk[..n]);
+        }
+        let method = head.split_whitespace().next().unwrap_or("").to_string();
+        let end = buf.len().min(head_end + content_length);
+        let body = String::from_utf8_lossy(&buf[head_end..end]).to_string();
+        Some((method, head, body))
+    }
+
+    /// `FormLoginExecutor` debe conservar el `PHPSESSID` emitido en el GET
+    /// aunque el POST no repita `Set-Cookie` (típico en PHP/DVWA).
+    #[tokio::test]
+    async fn test_form_login_keeps_get_session_cookie() {
+        use tokio::io::AsyncWriteExt;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let post_seen = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+        let post_seen_task = post_seen.clone();
+
+        let server = tokio::spawn(async move {
+            for _ in 0..2 {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    return;
+                };
+                let Some((method, _head, body)) = read_request(&mut stream).await else {
+                    return;
+                };
+                if method == "GET" {
+                    let html = r#"<form action="/login.php"><input type="hidden" name="user_token" value="tok123"><input name="username"><input name="password"></form>"#;
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nSet-Cookie: PHPSESSID=abc123; Path=/\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        html.len(),
+                        html
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                } else {
+                    *post_seen_task.lock().unwrap() = body;
+                    let html = "<html>Welcome</html>";
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        html.len(),
+                        html
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                }
+                let _ = stream.shutdown().await;
+            }
+        });
+
+        let config = AuthConfig::FormLogin {
+            login_url: format!("http://{addr}/login.php"),
+            username: "admin".to_string(),
+            password: "password".to_string(),
+            username_field: "username".to_string(),
+            password_field: "password".to_string(),
+            extra_fields: Vec::new(),
+            success_indicator: None,
+        };
+
+        let executor = FormLoginExecutor::new();
+        let login = executor.login(&config);
+        let cookies = tokio::time::timeout(std::time::Duration::from_secs(20), login)
+            .await
+            .expect("login timed out")
+            .expect("login should succeed");
+
+        server.await.expect("server task panicked");
+
+        // Cookie de sesión del GET conservada (¡aunque el POST no la repita!)
+        assert_eq!(cookies, "PHPSESSID=abc123");
+
+        let seen = post_seen.lock().unwrap().clone();
+        assert!(seen.contains("username=admin"), "body: {seen}");
+        // El campo oculto de la página se descubrió y se envió
+        assert!(seen.contains("user_token=tok123"), "body: {seen}");
     }
 }

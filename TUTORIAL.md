@@ -342,7 +342,7 @@ Lista completa que puedes pasar a `--checks` (separados por comas):
 
 ## 8. Escaneos autenticados
 
-Muchas vulnerabilidades solo son visibles **después de iniciar sesión**. Tres formas de hacerlo:
+Muchas vulnerabilidades solo son visibles **después de iniciar sesión**. Tres formas de hacerlo —y se pueden **combinar**: si pasas varias fuentes, la precedencia es `--cookie` > login automático > sesión grabada (en conflictos de nombre manda la más explícita).
 
 ### A) Con cookie (la más rápida)
 
@@ -398,6 +398,12 @@ sparrow scan --target http://mi-app.local \
 | `--login-field-user` | Nombre del campo de usuario (defecto: `username`) |
 | `--login-field-pass` | Nombre del campo de contraseña (defecto: `password`) |
 | `--login-field` | Campos extra del formulario, formato `"nombre=valor"` (repetible) |
+
+Jack Sparrow descubre solo los campos ocultos de la página (tokens CSRF como
+el `user_token` de DVWA) y **recoge las cookies tanto del GET inicial como del
+POST de login**, así que funciona con apps PHP que emiten el `PHPSESSID` al
+abrir sesión y no lo repiten después. Puedes añadir `--cookie` encima: se
+fusiona y en conflicto manda tu valor.
 
 ---
 
@@ -502,8 +508,18 @@ sparrow scan --target http://localhost:3001 --checks all --session session.har
 | `--browser` | `chromium` (defecto), `firefox` o `webkit` |
 | `--headless` | Sin ventana visible |
 
-El archivo `.har` contiene peticiones, cookies y tokens de tu navegación, que
-Jack Sparrow reutiliza para escanear como si fueras tú.
+El archivo `.har` contiene peticiones, cookies y tokens de tu navegación. Al
+pasarlo con `--session`, Jack Sparrow **extrae las cookies del dominio del
+objetivo** (de las cookies de cada petición/respuesta, o de la cabecera
+`Cookie` si el HAR no las lista) y las usa en el escaneo, como si fueras tú.
+Si además pasas `--login-*` o `--cookie`, se fusionan con esta precedencia:
+`--cookie` > login > sesión grabada.
+
+```bash
+# Las cookies del HAR del objetivo se aplican solas:
+sparrow scan --target http://localhost:3001 --checks all \
+  --session session.har --cookie "security=low"
+```
 
 ---
 

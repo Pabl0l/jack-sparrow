@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-10-02 10:40] — Autenticación: cookies del HAR, del login y del GET (#35, #36, #37)
+
+### Qué se hizo
+- **#36 — el login de formulario ya no pierde la sesión**: `FormLoginExecutor::login` recogía solo el `Set-Cookie` del **POST**; ahora `collect_set_cookies()` junta los del **GET** (donde PHP/DVWA emiten el `PHPSESSID`) y los del POST, con el POST ganando en conflictos. Antes, en apps PHP podía fallar con *"Login completed but no session cookies were found"*.
+- **#35 — `--session archivo.har` por fin aporta cookies**: nuevo `load_har_cookies(path, host)` en `recorder/browser.rs` que recorre las entradas del HAR, filtra por el host del objetivo, lee los arrays `cookies` de petición y respuesta (respuesta más reciente gana) con **fallback** a la cabecera `Cookie` cuando el HAR no lista cookies, y deduplica por nombre. `execute_scan` lo inyecta en `context.cookies` (antes `ScanContext.session` era un campo muerto).
+- **#37 — `--cookie` se fusiona en vez de pisarse**: `merge_cookie_strings(base, incoming)` combina por nombre preservando el orden; precedencia final `--cookie` > login automático > sesión grabada, con aviso en consola cuando hay merge.
+- **Docs**: `TUTORIAL.md` §8 (precedencia de fuentes + cookies GET/POST en el login) y §11 (`--session` real + ejemplo combinado); `README.md` §Record con el `--session` de follow-up.
+
+### Por qué (Justificación)
+- El usuario preguntaba si hay que copiar cookies a mano; la respuesta "usa `--login-*`" no funcionaba de forma fiable en el stack más común de sus labs (PHP/DVWA) y `--session` estaba documentado como funcional sin estar conectado.
+
+### Decisiones tomadas
+- **Fusión por nombre con precedencia explícita** → Elegida frente a "sobrescribir la fuente más reciente": el usuario que escribe `--cookie "security=low"` espera que su valor mande; descartado ordenar solo por frescura porque haría irreversible un flag explícito.
+- **Filtro por host en el HAR** → solo cookies del dominio del objetivo; si el target no es una URL parseable, se toman todas (no romper escaneos con targets "path").
+- **Servidor HTTP local en `#[tokio::test]`** → descrito un test de login con `HeaderMap` mockeado: se necesitaba reproducir el flujo real GET→POST (jar de cookies incluido), y `TcpListener` en loopback lo permite sin dependencias nuevas.
+
+### Investigación realizada
+- Revisión de `src/shared/auth.rs` (fases 1–5 del login), `src/core/recorder/browser.rs` (`load_har_requests` sin llamadores), `src/shared/context.rs` (campo `session` huérfano) y `src/commands/mod.rs:239` (sobrescritura de cookies).
+
+### Resultado
+- `cargo fmt --check` 0 · `clippy -D warnings` 0 · **lib 530** (+12) · integration 8 · e2e 12 · mission_consistency 2 · node 25 aserciones.
+- **E2E manual con servidor local** (mock que registra la cabecera `Cookie` recibida):
+  - `--session test-session.har` → consola `Session: 3 cookies loaded…` y las peticiones del escaneo llegan con `Cookie: from_header=hdr456; PHPSESSID=harcookie123; security=low` (**sin** la cookie de otro dominio que había en el HAR).
+  - Mock de login tipo DVWA (GET emite `PHPSESSID`, POST no lo repite) + `--cookie "security=low"` → `Auth: login successful, cookies: PHPSESSID=login999` + `Auth: explicit --cookie merged…` y las peticiones del escaneo llegan con `Cookie: PHPSESSID=login999; security=low`.
+
+### Archivos modificados
+- `src/shared/auth.rs` - `collect_set_cookies`, `merge_cookie_strings`, `upsert_cookie_pair`, `cookies_to_string`, login GET+POST, 7 tests (incl. test con servidor local)
+- `src/core/recorder/browser.rs` - `load_har_cookies`, `hosts_match`, 5 tests
+- `src/commands/mod.rs` - bloque de auth reescrito: HAR → login → `--cookie`, fusión con precedencia
+- `TUTORIAL.md`, `README.md` - documentación de las tres fuentes y su precedencia
+- `dev_weaknesses.md`, `dev_plan.md` - #35/#36/#37 → Resuelto
+
+---
+
 ## [2026-10-01 13:05] — Endurecimiento de puntos débiles del Modo Misión (#29, #30, #32)
 
 ### Qué se hizo
